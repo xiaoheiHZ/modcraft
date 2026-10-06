@@ -1,118 +1,89 @@
-# 方块梦工厂 · BlockDream
+# ModCraft · 方块梦工厂
 
 > 玩家输入 Minecraft 模组想法 → AI（DeepSeek V4.1 Flash）设计规格 → GitHub Actions 自动构建 JAR → 一键下载。
 
-本仓库是一个"三合一"项目：
+**线上地址**：https://modcraft.top （域名接入中）
+**临时入口**：https://modcraft.modcraft-xiaohei.workers.dev
 
-| 层 | 技术 | 位置 | 作用 |
-|---|---|---|---|
-| 网页 | 原生 HTML/CSS/JS（零依赖） | `public/` | 素材库、想法输入、注册登录、任务面板 |
-| 后端 | Cloudflare Workers + D1 | `worker/` | 账号、配额、调 DeepSeek、触发构建、下载代理 |
-| 构建器 | GitHub Actions + Python 代码生成器 | `.github/` `modgen/` | 把 AI 规格变成可编译的 Fabric 模组工程并编译成 JAR |
+| 层 | 技术 | 位置 |
+|---|---|---|
+| 网页 | 原生 HTML/CSS/JS（零依赖，双主题，MC 贴图图标） | `public/` |
+| 后端 | Cloudflare Workers + D1 | `worker/` |
+| 构建器 | GitHub Actions + Python 代码生成器 | `.github/` `modgen/` |
 
----
-
-## 一、本地预览（30 秒）
-
-双击 **`本地预览.bat`**（或手动 `python -m http.server 8787 --directory public`），打开 http://localhost:8787
-
-- 没连后端时自动进入 **演示模式**：注册/登录/生成流程会本地模拟，方便先看 UI。
-- 想跑真实后端：`npm install` 后 `npx wrangler dev`（需要先按下面配置 D1 和密钥）。
+支持版本：**Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21**（工具 / 食物 / 方块 / 物品，自动配方与贴图）。
 
 ---
 
-## 二、部署到 Cloudflare
+## 一、本地预览
 
-### A. 只部署静态页（最快，演示模式）
+双击 **`本地预览.bat`**（或 `python -m http.server 8787 --directory public`）→ http://localhost:8787
+想连真实后端：`npm run dev`（wrangler dev，端口 8788；密钥读 `.dev.vars`）。
 
-- 网页版：Cloudflare Dashboard → Workers & Pages → 创建 → Pages → 直接上传 `public` 文件夹。
-- 命令行：`npx wrangler pages deploy public --project-name blockdream`
+## 二、已完成的部署（2026-10-06）
 
-### B. 完整后端（推荐，解锁真实 AI + 构建）
+- Cloudflare 账户：A114514kkkk@outlook.com 的账户
+- D1 数据库：`modcraft`（id `a4a32b66-2935-43a8-879e-33e0bb2c5a85`，已建表）
+- Worker：`modcraft`，已部署，密钥 `DEEPSEEK_API_KEY / SESSION_SECRET / GITHUB_TOKEN` 已写入
+- 自定义域名：`modcraft.top` 已绑定（等待域名 NS 生效）
 
-```powershell
-npm install                                   # 装 wrangler
-npx wrangler login                            # 浏览器授权
-npx wrangler d1 create blockdream             # 创建数据库，复制返回的 database_id
-# 把 database_id 填到 wrangler.toml 里
-npx wrangler d1 execute blockdream --file worker/schema.sql --remote   # 建表
+### ⚠️ 域名还要做一步
 
-# 设置密钥（按提示粘贴，不要写进文件）
-npx wrangler secret put DEEPSEEK_API_KEY      # DeepSeek 的 sk-xxx
-npx wrangler secret put SESSION_SECRET        # 随便一串 32 位以上随机字符
-npx wrangler secret put GITHUB_TOKEN          # GitHub Token（见下）
-npx wrangler secret put GITHUB_REPO           # 形如 xiaoheiHZ/blockdream
+到 **modcraft.top 的购买商后台**，把域名的 DNS 服务器（NS）改成：
 
-npx wrangler deploy                           # 部署（静态页 + API 一起上）
+```
+elle.ns.cloudflare.com
+louis.ns.cloudflare.com
 ```
 
-本地开发用的密钥放在 **`.dev.vars`**（已在 .gitignore 中，不会进仓库）。
+改完后（几分钟到几小时），modcraft.top 就会正式指向本站。
 
----
+## 三、GitHub 构建通道
 
-## 三、GitHub 仓库与构建通道
+仓库：`xiaoheiHZ/modcraft`（构建工作流 `.github/workflows/build-mod.yml`）
 
-1. **安装 Git**（本机还没装）：`winget install --id Git.Git` 或去 https://git-scm.com 下载。
-2. 用 gh 建仓库并推送（已登录 xiaoheiHZ）：
-   ```powershell
-   git init && git add -A && git commit -m "init: BlockDream"
-   gh repo create blockdream --public --source . --push
-   ```
-3. **GITHUB_TOKEN**：网页 GitHub → Settings → Developer settings → Fine-grained token：
-   - 权限：`Actions: Read and write`、`Contents: Read and write`（挂到本仓库）。
-   - 或者偷懒：`gh auth token`（复用 gh 的 token，权限较大，仅自用建议）。
-4. 之后用户点「开始构建.jar」时：Worker 会 dispatch `build-mod.yml`，Actions 用 Python 生成器把 AI 规格编译成 Fabric 模组 jar，Worker 轮询状态并提供下载。
+用户点「构建 JAR」后的完整链路：
+1. Worker 调 GitHub API dispatch 工作流（携带 spec）
+2. Actions 里 `modgen/generate.py` 把 spec 变成完整 Fabric 工程
+3. `./gradlew build` 编译出 jar → 上传 artifact
+4. Worker 轮询状态 → 完成后提供下载（zip 内含 jar）
 
-> 构建器支持 MC **1.20.1（稳定）**，**1.21.1（测试中）**；Forge/NeoForge 在路上。
+> 本地构建小贴士（国内网络）：生成的工程默认从 services.gradle.org 下载 Gradle，国内慢可换镜像：
+> ```powershell
+> $env:GRADLE_DIST_URL = 'https://mirrors.cloud.tencent.com/gradle/gradle-9.7.1-bin.zip'
+> python modgen/generate.py --spec spec.json --out project
+> ```
 
-**本地构建小贴士（国内网络）**：生成的工程默认从 `services.gradle.org` 下载 Gradle。国内直连容易超时，可给生成器设环境变量换镜像后再生成：
-
-```powershell
-$env:GRADLE_DIST_URL = 'https://mirrors.cloud.tencent.com/gradle/gradle-9.7.1-bin.zip'
-python modgen/generate.py --spec spec.json --out project
-```
-
-（maven.fabricmc.net 的依赖下载偶尔也会受网络影响，建议直接用 GitHub Actions 云端编译，稳定。）
-
----
-
-## 四、邮箱注册 / 邮件验证（可选）
-
-- 默认：不配置邮件服务 → 注册自动激活（开发模式），页面会提示。
-- 要真发验证邮件：注册 Resend（https://resend.com），然后
-  ```powershell
-  npx wrangler secret put RESEND_API_KEY
-  npx wrangler secret put MAIL_FROM     # 如 noreply@yourdomain.com（需已验证域名）
-  ```
-
----
-
-## 五、套餐与限流（以后盈利的开关都在这）
+## 四、套餐与限流（盈利开关）
 
 `worker/src/index.js` 顶部 `PLANS`：
 
-| 套餐 | 模型 | 思考档位 | 单次输出上限 | 每天次数 | 单模组物品数 |
+| 套餐 | 模型 | 思考档 | 单次输出 | 每天 | 物品数 |
 |---|---|---|---|---|---|
-| free 免费版 | deepseek-flash | low（低思考） | 2000 tokens | 3 次 | 10 个 |
-| pro 专业版 | deepseek-v4-pro | high | 6000 tokens | 30 次 | 24 个 |
+| free | deepseek-flash | low | 2000 tokens | 3 次 | 10 |
+| pro | deepseek-v4-pro | high | 6000 tokens | 30 次 | 24 |
 
-- 所有调用都强制 `max_tokens` 上限并累计用户 token 用量（`users.tokens_used`）。
-- 想调价/改额度：直接改这几个数字即可；前端套餐展示在 `public/index.html` 里改成一致。
+邮箱注册：未配置邮件服务时自动激活；配 `RESEND_API_KEY` + `MAIL_FROM` 后发真实验证码。
 
----
+## 五、常用命令
 
-## 六、安全须知 ⚠️
+```powershell
+npm run dev                # 本地后端（8788）
+npm run deploy             # 重新部署到 Cloudflare
+npm run db:init            # 远程初始化数据库（幂等）
+npx wrangler tail modcraft # 线上实时日志
+```
 
-1. **你贴在聊天里的 DeepSeek Key 建议立刻轮换**（已在对话中出现过的密钥应视为泄露）；新 Key 放进 `.dev.vars` / `wrangler secret`。
-2. 密钥永远不要写进前端代码或提交仓库（.gitignore 已排除 `.dev.vars`）。
-3. Worker 对生成内容做了 JSON 结构校验，构建在一次性 Actions 容器中进行，不会碰你的本机。
+## 六、安全须知
 
----
+1. 密钥只放 `.dev.vars`（本地）与 `wrangler secret`（线上），**永不进仓库/前端**。
+2. 曾在聊天中出现过的密钥建议定期轮换。
+3. AI 生成内容由用户自行检查后使用；本项目非 Mojang / Microsoft 官方产品。
 
 ## 七、Roadmap
 
-- [ ] 1.21.1 构建转正、Forge / NeoForge 支持
-- [ ] 护甲套、食物效果、附魔、生物蛋
-- [ ] AI 生成贴图（Pillow 色相迁移已上线：选一个原版贴图作为基底 + 主题色自动调色）
-- [ ] 产物存 R2，直链下载 / 社区作品墙
-- [ ] 支付接入（Stripe / 爱发电）→ Pro 套餐上线
+- [ ] 1.21.4+ / Forge / NeoForge 支持
+- [ ] 护甲套、生物、附魔、生物蛋
+- [ ] AI 贴图生成升级、作品广场
+- [ ] 产物存 R2 直链下载
+- [ ] 支付接入 → Pro 上线

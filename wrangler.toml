@@ -14,7 +14,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "modcraft"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "a4a32b66-2935-43a8-879e-33e0bb2c5a85"
 
 [vars]
 GITHUB_REPO = "xiaoheiHZ/modcraft"
