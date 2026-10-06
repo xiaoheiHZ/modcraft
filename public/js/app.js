@@ -28,6 +28,7 @@ const state = {
   quota: null,
   orders: [],
 };
+let pendingAuth = null;   // 注册后等待邮箱验证的 {email, password}
 try { state.basket = new Set(JSON.parse(localStorage.getItem('bd_basket') || '[]')); } catch {}
 
 /* ================= MC 贴图 CDN（多级回退） ================= */
@@ -255,7 +256,7 @@ function setTimeline(step, errText) {
 
 function busy(btn, on) { btn.disabled = on; btn.style.opacity = on ? .6 : 1; }
 
-const KIND_LABEL = { item: '物品', sword: '剑', pickaxe: '镐', axe: '斧', shovel: '锹', hoe: '锄', food: '食物', block: '方块' };
+const KIND_LABEL = { item: '物品', sword: '剑', pickaxe: '镐', axe: '斧', shovel: '锹', hoe: '锄', helmet: '头盔', chestplate: '胸甲', leggings: '护腿', boots: '靴子', food: '食物', block: '方块' };
 
 function buildDemoSpec(idea, picked) {
   const base = {
@@ -624,6 +625,14 @@ async function doAuth(kind) {
       const d = await jpost('/api/register', { email, password });
       msg.textContent = d.message || '注册成功！';
       state.user = d.user;
+      if (d.need_verify) {
+        pendingAuth = { email, password };
+        $('#verifyHint').textContent = `验证码已发送到 ${email}，请查收（15 分钟内有效）。`;
+        $('#registerForm').classList.add('hidden');
+        $('#verifyForm').classList.remove('hidden');
+        renderUserChip();
+        return;
+      }
     } else {
       const d = await jpost('/api/login', { email, password });
       state.user = d.user;
@@ -633,7 +642,7 @@ async function doAuth(kind) {
     renderUserChip(); renderAccount();
     await loadTasks(); renderTasks();
   } catch (e) {
-    msg.textContent = '❌ ' + e.message;
+    msg.textContent = '失败：' + e.message;
     msg.classList.add('err');
   }
 }
@@ -703,6 +712,32 @@ function bind() {
   });
   $('#loginForm').onsubmit = e => { e.preventDefault(); doAuth('login'); };
   $('#registerForm').onsubmit = e => { e.preventDefault(); doAuth('register'); };
+  $('#verifyForm').onsubmit = async e => {
+    e.preventDefault();
+    if (!pendingAuth) { toast('请先注册'); return; }
+    const code = $('#verifyCode').value.trim();
+    const msg = $('#authMsg');
+    try {
+      await jpost('/api/verify', { email: pendingAuth.email, code });
+      const d = await jpost('/api/login', { email: pendingAuth.email, password: pendingAuth.password });
+      state.user = d.user;
+      state.quota = d.quota;
+      msg.classList.remove('err');
+      msg.textContent = '邮箱验证成功，已自动登录！';
+      $('#verifyForm').classList.add('hidden');
+      renderUserChip(); renderAccount();
+      await loadTasks(); renderTasks();
+      pendingAuth = null;
+    } catch (e2) {
+      msg.textContent = '失败：' + e2.message;
+      msg.classList.add('err');
+    }
+  };
+  $('#btnResendCode').onclick = async () => {
+    if (!pendingAuth) { toast('请先注册'); return; }
+    try { const d = await jpost('/api/verify/send', { email: pendingAuth.email }); toast(d.message); }
+    catch (e) { toast('发送失败：' + e.message); }
+  };
   $('#btnLogout').onclick = doLogout;
   $('#btnRefreshTasks').onclick = () => loadTasks().then(renderTasks);
   $$('[data-buy]').forEach(b => b.onclick = () => startBuy('plan', b.dataset.buy));

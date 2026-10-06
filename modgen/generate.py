@@ -31,34 +31,61 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 #   B2 = 1.21.4（ToolMaterial 内联构造器 / 字符串配方材料 / items/ 物品模型目录）
 #   C  = 26.x（Identifier / fabric-loom 插件 / Java 25；需付费）
 VERSIONS = {
-    '1.20':   dict(mc='1.20',   release=17, fabric_api='0.83.0+1.20',     gen='A'),
-    '1.20.1': dict(mc='1.20.1', release=17, fabric_api='0.92.12+1.20.1',  gen='A'),
-    '1.20.2': dict(mc='1.20.2', release=17, fabric_api='0.91.6+1.20.2',   gen='A'),
-    '1.20.4': dict(mc='1.20.4', release=17, fabric_api='0.97.3+1.20.4',   gen='A'),
-    '1.21':   dict(mc='1.21',   release=21, fabric_api='0.102.0+1.21',    gen='B'),
-    '1.21.1': dict(mc='1.21.1', release=21, fabric_api='0.116.17+1.21.1', gen='B'),
-    '1.21.4': dict(mc='1.21.4', release=21, fabric_api='0.119.4+1.21.4',  gen='B2'),
-    '26.1':   dict(mc='26.1',   release=25, fabric_api='0.145.1+26.1',    gen='C'),
-    '26.2':   dict(mc='26.2',   release=25, fabric_api='0.161.0+26.2',    gen='C'),
-    '26.3':   dict(mc='26.3',   release=25, fabric_api='0.161.0+26.3',    gen='C'),
+    '1.20':    dict(mc='1.20',    release=17, fabric_api='0.83.0+1.20',       gen='A'),
+    '1.20.1':  dict(mc='1.20.1',  release=17, fabric_api='0.92.12+1.20.1',    gen='A'),
+    '1.20.2':  dict(mc='1.20.2',  release=17, fabric_api='0.91.6+1.20.2',     gen='A'),
+    '1.20.4':  dict(mc='1.20.4',  release=17, fabric_api='0.97.3+1.20.4',     gen='A'),
+    '1.20.5':  dict(mc='1.20.5',  release=21, fabric_api='0.97.8+1.20.5',     gen='A2'),
+    '1.20.6':  dict(mc='1.20.6',  release=21, fabric_api='0.100.8+1.20.6',    gen='A2'),
+    '1.21':    dict(mc='1.21',    release=21, fabric_api='0.102.0+1.21',      gen='B'),
+    '1.21.1':  dict(mc='1.21.1',  release=21, fabric_api='0.116.17+1.21.1',   gen='B'),
+    '1.21.2':  dict(mc='1.21.2',  release=21, fabric_api='0.106.1+1.21.2',    gen='B2x'),
+    '1.21.3':  dict(mc='1.21.3',  release=21, fabric_api='0.114.1+1.21.3',    gen='B2x'),
+    '1.21.4':  dict(mc='1.21.4',  release=21, fabric_api='0.119.4+1.21.4',    gen='B2'),
+    '1.21.5':  dict(mc='1.21.5',  release=21, fabric_api='0.128.2+1.21.5',    gen='B3'),
+    '1.21.6':  dict(mc='1.21.6',  release=21, fabric_api='0.128.2+1.21.6',    gen='B3'),
+    '1.21.7':  dict(mc='1.21.7',  release=21, fabric_api='0.129.0+1.21.7',    gen='B3'),
+    '1.21.8':  dict(mc='1.21.8',  release=21, fabric_api='0.136.1+1.21.8',    gen='B3'),
+    '1.21.9':  dict(mc='1.21.9',  release=21, fabric_api='0.134.1+1.21.9',    gen='B3'),
+    '1.21.10': dict(mc='1.21.10', release=21, fabric_api='0.138.4+1.21.10',   gen='B3'),
+    '1.21.11': dict(mc='1.21.11', release=21, fabric_api='0.141.6+1.21.11',   gen='C1'),
+    '26.1':    dict(mc='26.1',    release=25, fabric_api='0.145.1+26.1',      gen='C'),
+    '26.2':    dict(mc='26.2',    release=25, fabric_api='0.161.0+26.2',      gen='C'),
+    '26.3':    dict(mc='26.3',    release=25, fabric_api='0.161.0+26.3',      gen='C'),
 }
 GEN_CAPS = {
-    'A':  dict(tool_style='old',    food_method='saturationMod',     recipe_style='v1',
-               data_dirs='plural',   items_folder=False, id_style='ctor',
-               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
-               dep_style='mod',      tab_style='entries', premium=False),
-    'B':  dict(tool_style='attrs',  food_method='saturationModifier', recipe_style='v2',
-               data_dirs='singular', items_folder=False, id_style='fromNS',
-               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
-               dep_style='mod',      tab_style='entries', premium=False),
-    'B2': dict(tool_style='modern', food_method='saturationModifier', recipe_style='v3',
-               data_dirs='singular', items_folder=True,  id_style='fromNS',
-               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
-               dep_style='mod',      tab_style='entries', premium=False),
-    'C':  dict(tool_style='classic26', food_method='saturationModifier', recipe_style='v3',
-               data_dirs='singular', items_folder=True,  id_style='idclass',
-               plugin='net.fabricmc.fabric-loom',      mappings_line=False,
-               dep_style='impl',     tab_style='output',  premium=True),
+    'A':   dict(tool_style='old',      food_method='saturationMod',      recipe_style='v1',
+                data_dirs='plural',   items_folder=False, id_style='ctor',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='classic', premium=False),
+    'A2':  dict(tool_style='attrs',    food_method='saturationModifier', recipe_style='v2',
+                data_dirs='plural',   items_folder=False, id_style='ctor',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='holder',  premium=False),
+    'B':   dict(tool_style='attrs',    food_method='saturationModifier', recipe_style='v2',
+                data_dirs='singular', items_folder=False, id_style='fromNS',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='classic', premium=False),
+    'B2x': dict(tool_style='modern',   food_method='saturationModifier', recipe_style='v3',
+                data_dirs='singular', items_folder=False, id_style='fromNS',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='equipclass', premium=False),
+    'B2':  dict(tool_style='modern',   food_method='saturationModifier', recipe_style='v3',
+                data_dirs='singular', items_folder=True,  id_style='fromNS',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='equipclass', premium=False),
+    'B3':  dict(tool_style='classic26', food_method='saturationModifier', recipe_style='v3',
+                data_dirs='singular', items_folder=True,  id_style='fromNS',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='equipprops', premium=False),
+    'C1':  dict(tool_style='classic26', food_method='saturationModifier', recipe_style='v3',
+                data_dirs='singular', items_folder=True,  id_style='idclass',
+                plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+                dep_style='mod',      tab_style='entries', armor_style='equipprops', premium=False),
+    'C':   dict(tool_style='classic26', food_method='saturationModifier', recipe_style='v3',
+                data_dirs='singular', items_folder=True,  id_style='idclass',
+                plugin='net.fabricmc.fabric-loom',      mappings_line=False,
+                dep_style='impl',     tab_style='output', armor_style='equipprops', premium=True),
 }
 DEFAULT_VERSION = '1.20.1'
 LOADER = '0.19.5'
@@ -95,6 +122,21 @@ TOOL_DMG = {'sword': 3, 'pickaxe': 1, 'axe': 5, 'shovel': 1, 'hoe': 0}
 TOOL_SPD = {'sword': -2.4, 'pickaxe': -2.8, 'axe': -3.0, 'shovel': -3.0, 'hoe': -3.0}
 TOOL_GROUP = {'sword': 'COMBAT', 'pickaxe': 'TOOLS_AND_UTILITIES', 'axe': 'TOOLS_AND_UTILITIES',
               'shovel': 'TOOLS_AND_UTILITIES', 'hoe': 'TOOLS_AND_UTILITIES'}
+ARMOR_KINDS = ('helmet', 'chestplate', 'leggings', 'boots')
+ARMOR_TYPE = {'helmet': 'HELMET', 'chestplate': 'CHESTPLATE', 'leggings': 'LEGGINGS', 'boots': 'BOOTS'}
+
+def pick_armor_material(material):
+    m = (material or '').lower()
+    if m in ('netherite_ingot', 'netherite_scrap'):
+        return 'NETHERITE'
+    if m in ('iron_ingot', 'iron_nugget', 'chainmail'):
+        return 'IRON'
+    if m in ('gold_ingot', 'gold_nugget'):
+        return 'GOLD'
+    if m == 'leather':
+        return 'LEATHER'
+    return 'DIAMOND'
+
 TAB_IDS = {'COMBAT': 'combat', 'TOOLS_AND_UTILITIES': 'tools_and_utilities',
            'FOOD_AND_DRINKS': 'food_and_drinks', 'INGREDIENTS': 'ingredients',
            'BUILDING_BLOCKS': 'building_blocks'}
@@ -435,6 +477,18 @@ def build_java_body(spec, cfg):
                 ctor = f'new {TOOL_CLASS[kind]}(Tiers.{tier}, {dmg}, {spd}F, {props})'
             lines.append(f'\t\tItem {var} = register("{vid}", {ctor});')
             groups.setdefault(TOOL_GROUP[kind], []).append(var)
+        elif kind in ARMOR_KINDS:
+            mat = pick_armor_material(it.get('material'))
+            slot = ARMOR_TYPE[kind]
+            astyle = cfg['armor_style']
+            if astyle in ('classic', 'holder'):     # 1.20~1.21.1：ArmorItem + ArmorItem.Type
+                ctor = f'new ArmorItem(ArmorMaterials.{mat}, ArmorItem.Type.{slot}, new Item.Properties())'
+            elif astyle == 'equipclass':            # 1.21.2~1.21.4：equipment 包
+                ctor = f'new ArmorItem(ArmorMaterials.{mat}, ArmorType.{slot}, new Item.Properties())'
+            else:                                    # equipprops：1.21.5+/26.x 纯 Item
+                ctor = f'new Item(new Item.Properties().humanoidArmor(ArmorMaterials.{mat}, ArmorType.{slot}))'
+            lines.append(f'\t\tItem {var} = register("{vid}", {ctor});')
+            groups.setdefault('COMBAT', []).append(var)
         elif kind == 'food':
             n = int(it.get('nutrition') or 4)
             s = float(it.get('saturation') or 0.6)
@@ -568,12 +622,16 @@ def generate(spec_path, out_dir):
     else:
         id_body = '\t\treturn Identifier.fromNamespaceAndPath(MOD_ID, path);'
     body = build_java_body({'items': items}, cfg)
+    equipment_imports = ''
+    if cfg['armor_style'] in ('equipclass', 'equipprops'):
+        equipment_imports = ('\nimport net.minecraft.world.item.equipment.ArmorMaterials;'
+                             '\nimport net.minecraft.world.item.equipment.ArmorType;')
     if cfg['tab_style'] == 'output':
         extra_imports = ('import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;\n'
                          'import net.minecraft.core.registries.Registries;\n'
-                         'import net.minecraft.resources.ResourceKey;')
+                         'import net.minecraft.resources.ResourceKey;' + equipment_imports)
     else:
-        extra_imports = 'import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;'
+        extra_imports = 'import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;' + equipment_imports
     java_src = (MAIN_CLASS
                 .replace('@PKG@', pkg)
                 .replace('@CLS@', cls)

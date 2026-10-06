@@ -202,7 +202,8 @@ textarea.input { resize: vertical; line-height: 1.6; }
 .toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
 .toolbar .input { flex: 1; }
 .toolbar .select { width: 190px; flex: none; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.seo-text { color: var(--muted); line-height: 1.9; font-size: 13.5px; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.seo-text b { color: var(--text); }
 .chip {
   font: inherit; font-size: 13px; cursor: pointer;
   color: var(--muted); background: var(--panel);

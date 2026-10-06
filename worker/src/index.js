@@ -74,8 +74,13 @@ function planOf(env, userOrName) {
   };
 }
 
-const KINDS = ['item', 'sword', 'pickaxe', 'axe', 'shovel', 'hoe', 'food', 'block'];
-const MC_VERSIONS = ['1.20', '1.20.1', '1.20.2', '1.20.4', '1.21', '1.21.1', '1.21.4', '26.1', '26.2', '26.3'];
+const KINDS = ['item', 'sword', 'pickaxe', 'axe', 'shovel', 'hoe', 'helmet', 'chestplate', 'leggings', 'boots', 'food', 'block'];
+const MC_VERSIONS = [
+  '1.20', '1.20.1', '1.20.2', '1.20.4', '1.20.5', '1.20.6',
+  '1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5', '1.21.6', '1.21.7',
+  '1.21.8', '1.21.9', '1.21.10', '1.21.11',
+  '26.1', '26.2', '26.3',
+];
 const isPremiumVersion = v => String(v).startsWith('26.');
 const RESERVED_IDS = new Set(['minecraft', 'mod', 'test', 'modcraft', 'fabric', 'forge']);
 
@@ -221,7 +226,7 @@ const SYSTEM_PROMPT = `你是「ModCraft 方块梦工厂」的 Minecraft 模组�
       "id": "物品英文id，[a-z0-9_]{2,32}",
       "name_zh": "中文名 ≤12字",
       "name_en": "English name",
-      "kind": "item | sword | pickaxe | axe | shovel | hoe | food | block",
+      "kind": "item | sword | pickaxe | axe | shovel | hoe | helmet | chestplate | leggings | boots | food | block",
       "material": "可选：配方材料，原版物品id（如 emerald / iron_ingot / amethyst_shard）",
       "base_texture": "可选：贴图基底，原版物品或方块id（如 diamond_sword / potato / pumpkin）",
       "color": "可选：#RRGGBB，用于自动调色",
@@ -238,7 +243,8 @@ const SYSTEM_PROMPT = `你是「ModCraft 方块梦工厂」的 Minecraft 模组�
 2. 主题统一、风格鲜明；物品之间数值不要全部照抄原版，可略作强化但别太夸张。
 3. mod_id 不要使用 minecraft、mod、test 等保留词。
 4. 输出必须是纯 JSON（UTF-8），不要注释、不要多余文本。
-5. base_texture 与 material 请使用原版常用的贴图/物品名（剑类参考 diamond_sword，食物参考 apple，方块参考 emerald_block 等）。`;
+5. base_texture 与 material 请使用原版常用的贴图/物品名（剑类参考 diamond_sword，食物参考 apple，方块参考 emerald_block 等）。
+6. 护甲（helmet/chestplate/leggings/boots）用 material 指定材质：diamond / netherite_ingot / iron_ingot / gold_ingot / leather，其他材质按钻石档。`;
 
 async function callDeepSeek(env, plan, userPrompt) {
   const base = (env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
@@ -427,9 +433,32 @@ async function sendMail(env, to, subject, html) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'BlockDream <noreply@example.com>', to: [to], subject, html }),
+    body: JSON.stringify({ from: env.MAIL_FROM || 'ModCraft <onboarding@resend.dev>', to: [to], subject, html }),
   });
   return res.ok;
+}
+
+/* 好看的验证码邮件模板 */
+function verifyEmailHtml(code) {
+  const icon = 'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.21.1/assets/minecraft/textures/block/grass_block_side.png';
+  return `<div style="background:#0d1117;padding:32px 12px;font-family:'Segoe UI','Microsoft YaHei',Arial,sans-serif">
+  <div style="max-width:520px;margin:0 auto;background:#161d29;border:1px solid #2c3a4f;border-radius:8px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0f7a52,#34d399);padding:20px 26px">
+      <span style="font-size:19px;font-weight:700;color:#04160e"><img src="${icon}" width="20" height="20" style="vertical-align:-3px;image-rendering:pixelated"> ModCraft 方块梦工厂</span>
+      <div style="font-size:12px;color:#08331f;margin-top:4px">用一句话，造一个 Minecraft 模组</div>
+    </div>
+    <div style="padding:26px">
+      <p style="color:#e8eef7;font-size:14px;margin:0 0 14px">你好！感谢注册 ModCraft，你的邮箱验证码是：</p>
+      <div style="text-align:center;margin:22px 0">
+        <span style="display:inline-block;background:#0c1119;border:2px dashed #34d399;border-radius:6px;padding:14px 30px;font-size:30px;letter-spacing:8px;font-weight:700;color:#34d399;font-family:Consolas,monospace">${code}</span>
+      </div>
+      <p style="color:#8ea0b8;font-size:13px;margin:0 0 6px">验证码 15 分钟内有效，请勿泄露给他人。</p>
+      <p style="color:#8ea0b8;font-size:13px;margin:0">如果这不是你的操作，忽略本邮件即可。</p>
+      <hr style="border:none;border-top:1px solid #2c3a4f;margin:20px 0">
+      <p style="color:#5d6f82;font-size:12px;margin:0">ModCraft · 方块梦工厂 · <a href="https://modcraft.top" style="color:#34d399">modcraft.top</a><br>AI 生成 Minecraft 模组 · Fabric 1.20 ~ 26.3</p>
+    </div>
+  </div>
+</div>`;
 }
 
 /* ================= API 路由 ================= */
@@ -442,7 +471,7 @@ async function handleApi(request, env, ctx) {
   /* ---- 健康检查 ---- */
   if (path === '/api/health') {
     return ok({
-      version: '0.3.0',
+      version: '0.4.0',
       mail: !!(env && env.RESEND_API_KEY),
       github: !!(env && env.GITHUB_TOKEN && env.GITHUB_REPO),
       deepseek: !!(env && env.DEEPSEEK_API_KEY),
@@ -466,21 +495,21 @@ async function handleApi(request, env, ctx) {
     ).bind(id, email.toLowerCase(), hash, salt, 'free', verified, Date.now()).run();
 
     let message = '注册成功！';
+    let needVerify = false;
     if (mailConfigured) {
+      needVerify = true;
       const code = String(Math.floor(100000 + Math.random() * 900000));
       await env.DB.prepare(
         'INSERT INTO verify_codes (email, code, kind, expires_at) VALUES (?,?,?,?) ON CONFLICT(email, kind) DO UPDATE SET code = excluded.code, expires_at = excluded.expires_at'
       ).bind(email.toLowerCase(), code, 'verify', Date.now() + 15 * 60 * 1000).run();
-      const sent = await sendMail(env, email,
-        '【方块梦工厂】邮箱验证码',
-        `<p>你的验证码是 <b style="font-size:20px">${code}</b>，15 分钟内有效。</p>`);
-      message = sent ? '注册成功！验证码已发到你的邮箱。' : '注册成功，但验证邮件发送失败，请联系管理员。';
+      const sent = await sendMail(env, email, '【ModCraft】邮箱验证码', verifyEmailHtml(code));
+      message = sent ? '注册成功！验证码已发送到你的邮箱，请查收。' : '注册成功，但验证邮件发送失败，可点击「重新发送验证码」。';
     } else {
       message = '注册成功！（未配置邮件服务，已自动激活）';
     }
     const token = await makeSession(env, id);
     const user = await getUserById(env, id);
-    return ok({ message, user: publicUser(user), quota: await quotaInfo(env, user) }, 200, { 'set-cookie': sessionCookie(request, token) });
+    return ok({ message, need_verify: needVerify, user: publicUser(user), quota: await quotaInfo(env, user) }, 200, { 'set-cookie': sessionCookie(request, token) });
   }
 
   /* ---- 登录 ---- */
@@ -650,6 +679,22 @@ async function handleApi(request, env, ctx) {
     await env.DB.prepare('UPDATE users SET verified = 1 WHERE email = ?').bind(email.toLowerCase()).run();
     await env.DB.prepare('DELETE FROM verify_codes WHERE email = ? AND kind = ?').bind(email.toLowerCase(), 'verify').run();
     return ok({ message: '邮箱验证成功！' });
+  }
+
+  /* ---- 重新发送验证码 ---- */
+  if (path === '/api/verify/send' && method === 'POST') {
+    const { email } = await readJson();
+    if (!isValidEmail(email)) return fail('邮箱格式不正确');
+    if (!env.RESEND_API_KEY) return fail('邮件服务未配置', 500);
+    const row = await env.DB.prepare('SELECT id, verified FROM users WHERE email = ?').bind(email.toLowerCase()).first();
+    if (!row) return fail('该邮箱未注册', 404);
+    if (row.verified) return fail('该邮箱已验证，直接登录即可', 409);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await env.DB.prepare(
+      'INSERT INTO verify_codes (email, code, kind, expires_at) VALUES (?,?,?,?) ON CONFLICT(email, kind) DO UPDATE SET code = excluded.code, expires_at = excluded.expires_at'
+    ).bind(email.toLowerCase(), code, 'verify', Date.now() + 15 * 60 * 1000).run();
+    const sent = await sendMail(env, email, '【ModCraft】邮箱验证码', verifyEmailHtml(code));
+    return sent ? ok({ message: '验证码已重新发送' }) : fail('发送失败，请稍后再试', 502);
   }
 
   /* ======== 以下都需要登录 ======== */

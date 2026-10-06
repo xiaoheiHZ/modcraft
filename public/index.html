@@ -3,8 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ModCraft · 方块梦工厂 —— 用一句话造一个 Minecraft 模组</title>
-<meta name="description" content="输入你的 MC 模组想法，AI 设计规格，GitHub Actions 自动构建 JAR，一键下载。">
+<title>AI 生成 Minecraft 模组 · 我的世界 Mod 在线制作工具 | ModCraft 方块梦工厂</title>
+<meta name="description" content="免费在线生成 Minecraft 模组：输入一句中文想法，AI 自动设计物品、工具、护甲、食物、方块与配方，云端自动编译成可安装的 .jar，一键下载。支持 Fabric 1.20 ~ 26.3 全版本，不会编程也能做我的世界 Mod。">
+<meta name="keywords" content="Minecraft模组生成器,我的世界mod制作,AI生成mod,mc模组在线生成,fabric模组制作,我的世界模组工具,modcraft,免费mod生成,我的世界jar下载,apk二创,MC模组">
+<link rel="canonical" href="https://modcraft.top/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ModCraft 方块梦工厂">
+<meta property="og:title" content="AI 生成 Minecraft 模组 · 我的世界 Mod 在线制作 | ModCraft">
+<meta property="og:description" content="输入一句中文想法，AI 设计 + 云端编译，几分钟生成可安装的 Minecraft 模组 jar。支持 Fabric 1.20~26.3。">
+<meta property="og:url" content="https://modcraft.top/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AI 生成 Minecraft 模组 | ModCraft 方块梦工厂">
+<meta name="twitter:description" content="用一句话造一个 Minecraft 模组，AI 设计 + 云端编译 + 一键下载。">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ModCraft 方块梦工厂",
+  "url": "https://modcraft.top/",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Web",
+  "description": "AI 生成 Minecraft 模组的在线工具：输入想法自动设计并云端编译成可安装的 Fabric 模组 jar，支持 1.20~26.3。",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "需要会写代码吗？", "acceptedAnswer": {"@type": "Answer", "text": "不需要。你只管提想法，规格设计、代码生成、编译全自动完成。"}},
+    {"@type": "Question", "name": "生成的模组怎么用？", "acceptedAnswer": {"@type": "Answer", "text": "安装 Fabric Loader + Fabric API，把下载的 jar 放进 .minecraft/mods 即可。支持 1.20 到 26.3 多个版本。"}},
+    {"@type": "Question", "name": "支持哪些游戏版本？", "acceptedAnswer": {"@type": "Answer", "text": "支持 Fabric 1.20 / 1.20.1 / 1.20.2 / 1.20.4 / 1.20.5 / 1.20.6 / 1.21 ~ 1.21.11 / 26.1 / 26.2 / 26.3 共 21 个版本。"}}
+  ]
+}
+</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>try{ if(localStorage.getItem('bd_theme')==='light') document.documentElement.classList.add('light'); }catch(e){}</script>
 <link rel="stylesheet" href="css/style.css">
@@ -37,7 +70,7 @@
   <section id="view-home" class="view active">
     <div class="hero">
       <h1>把你脑子里的模组，<span class="hl">变成能装的 JAR</span></h1>
-      <p class="hero-sub">输入一句中文想法 → AI 设计物品 / 配方 / 贴图 → GitHub Actions 云端编译 → 下载放进 <code>mods</code> 文件夹，开玩。</p>
+      <p class="hero-sub">输入一句中文想法，AI 帮你制作 Minecraft 模组：自动设计物品 / 工具 / 护甲 / 食物 / 方块与配方，云端编译成可安装的 .jar，下载放进 <code>mods</code> 文件夹就能玩。</p>
       <div class="cta-row">
         <button class="btn primary big" data-goto="create"><img class="mc-icon" data-mc="crafting_table" alt="">开始造模组</button>
         <button class="btn ghost big" data-goto="assets"><img class="mc-icon" data-mc="chest" alt="">先逛逛素材库</button>
@@ -116,6 +149,11 @@
     </div>
 
     <div class="faq">
+      <h2 class="section-title">关于 ModCraft 方块梦工厂</h2>
+      <p class="seo-text">ModCraft 是一个在线的 <b>Minecraft 模组生成器</b>：你只需要用中文描述想法（例如「一把会发光的宝石剑」），AI 就会设计出物品、工具、护甲、食物、方块以及合成配方，并通过云端自动编译成可安装的 <b>Fabric 模组 jar</b>。无需编程，支持 <b>1.20、1.20.1、1.20.4、1.20.6、1.21.1、1.21.4、1.21.11、26.1</b> 等 21 个游戏版本，适用于生存服、整合包或自己做着玩。生成的模组可以自由分享给朋友，直接放进 <code>.minecraft/mods</code> 文件夹即可加载。</p>
+    </div>
+
+    <div class="faq">
       <h2 class="section-title">常见问题</h2>
       <details><summary>需要会写代码吗？</summary><p>不需要。你只管提想法，规格设计、代码生成、编译全自动完成。</p></details>
       <details><summary>生成的模组怎么用？</summary><p>安装 Fabric Loader + Fabric API，把下载的 jar 放进 <code>.minecraft/mods</code> 即可。支持 1.20 / 1.20.1 / 1.20.2 / 1.20.4 / 1.21 / 1.21.1 / 1.21.4，以及 26.1 / 26.2 / 26.3（26.x 需套餐或单次购买）。</p></details>
@@ -129,9 +167,13 @@
     <div class="toolbar">
       <input id="assetSearch" class="input" type="search" placeholder="搜索物品 / 方块：中文、English 或 id 都行…">
       <select id="assetVersion" class="input select">
-        <option value="1.21.1">贴图版本 1.21.1</option>
+        <option value="1.21.11">贴图版本 1.21.11</option>
+        <option value="1.21.8">贴图版本 1.21.8</option>
+        <option value="1.21.5">贴图版本 1.21.5</option>
         <option value="1.21.4">贴图版本 1.21.4</option>
+        <option value="1.21.1">贴图版本 1.21.1</option>
         <option value="1.21">贴图版本 1.21</option>
+        <option value="1.20.6">贴图版本 1.20.6</option>
         <option value="1.20.4">贴图版本 1.20.4</option>
         <option value="1.20.2">贴图版本 1.20.2</option>
         <option value="1.20.1">贴图版本 1.20.1</option>
@@ -154,16 +196,27 @@
         <div class="row wrap">
           <label class="field">目标版本
             <select id="mcVersion" class="input select">
-              <option value="1.20.1">1.20.1（稳定）</option>
-              <option value="1.20.2">1.20.2</option>
-              <option value="1.20.4">1.20.4</option>
-              <option value="1.20">1.20</option>
+              <option value="1.21.11">1.21.11（最新）</option>
+              <option value="1.21.10">1.21.10</option>
+              <option value="1.21.9">1.21.9</option>
+              <option value="1.21.8">1.21.8</option>
+              <option value="1.21.7">1.21.7</option>
+              <option value="1.21.6">1.21.6</option>
+              <option value="1.21.5">1.21.5</option>
+              <option value="1.21.4">1.21.4</option>
+              <option value="1.21.3">1.21.3</option>
+              <option value="1.21.2">1.21.2</option>
               <option value="1.21.1">1.21.1（推荐）</option>
               <option value="1.21">1.21</option>
-              <option value="1.21.4">1.21.4</option>
-              <option value="26.1">26.1（套餐/单次购买）</option>
-              <option value="26.2">26.2（套餐/单次购买）</option>
+              <option value="1.20.6">1.20.6</option>
+              <option value="1.20.5">1.20.5</option>
+              <option value="1.20.4">1.20.4</option>
+              <option value="1.20.2">1.20.2</option>
+              <option value="1.20.1" selected>1.20.1（经典稳定）</option>
+              <option value="1.20">1.20</option>
               <option value="26.3">26.3（套餐/单次购买）</option>
+              <option value="26.2">26.2（套餐/单次购买）</option>
+              <option value="26.1">26.1（套餐/单次购买）</option>
             </select>
           </label>
           <label class="field">加载器
@@ -215,7 +268,13 @@
         <label class="field">邮箱<input id="regEmail" class="input" type="email" required placeholder="you@example.com"></label>
         <label class="field">密码<input id="regPassword" class="input" type="password" required minlength="8" placeholder="至少 8 位，建议字母+数字"></label>
         <button class="btn primary full" type="submit">注册（邮箱即账号）</button>
-        <p class="hint">未配置邮件服务时会自动激活（开发模式）；配置后需点邮件里的验证链接。</p>
+        <p class="hint">未配置邮件服务时会自动激活；配置后需输入邮箱验证码。</p>
+      </form>
+      <form id="verifyForm" class="auth-form hidden">
+        <p class="hint" id="verifyHint">验证码已发送到你的邮箱，请查收（15 分钟内有效）。</p>
+        <label class="field">邮箱验证码<input id="verifyCode" class="input" maxlength="6" inputmode="numeric" placeholder="6 位数字" required></label>
+        <button class="btn primary full" type="submit">验证并激活</button>
+        <button class="btn ghost full" type="button" id="btnResendCode">重新发送验证码</button>
       </form>
       <p id="authMsg" class="auth-msg"></p>
     </div>
