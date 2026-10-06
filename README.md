@@ -2,57 +2,59 @@
 
 > 玩家输入 Minecraft 模组想法 → AI（DeepSeek V4.1 Flash）设计规格 → GitHub Actions 自动构建 JAR → 一键下载。
 
-**线上地址**：https://modcraft.top （域名接入中）
+**线上地址**：https://modcraft.top（等待域名 NS 生效后正式启用）
 **临时入口**：https://modcraft.modcraft-xiaohei.workers.dev
+**代码仓库**：https://github.com/xiaoheiHZ/modcraft
 
 | 层 | 技术 | 位置 |
 |---|---|---|
-| 网页 | 原生 HTML/CSS/JS（零依赖，双主题，MC 贴图图标） | `public/` |
+| 网页 | 原生 HTML/CSS/JS（零依赖、MC 贴图图标、深色/浅色双主题） | `public/` |
 | 后端 | Cloudflare Workers + D1 | `worker/` |
 | 构建器 | GitHub Actions + Python 代码生成器 | `.github/` `modgen/` |
 
-支持版本：**Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21**（工具 / 食物 / 方块 / 物品，自动配方与贴图）。
+支持版本：**Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21**（物品 / 工具 / 食物 / 方块，自动配方与贴图）
 
 ---
 
-## 一、本地预览
+## 一、验证状态（2026-10-06 全部实测通过）
 
-双击 **`本地预览.bat`**（或 `python -m http.server 8787 --directory public`）→ http://localhost:8787
-想连真实后端：`npm run dev`（wrangler dev，端口 8788；密钥读 `.dev.vars`）。
+- ✅ 前端：素材库 404 个素材、贴图四级 CDN 自动回退、双主题、注册/登录/任务面板
+- ✅ 后端：会话 Cookie、每日配额、贴图代理、未登录拦截（本地 wrangler 实测）
+- ✅ AI：`deepseek-flash` 低思考实时生成（2.8~4.4 秒 / 千级 tokens）
+- ✅ 构建：GitHub Actions 真机编译 —— **1.20.1 ✓（1m10s）**、**1.21.1 ✓（1m16s）**
+- ✅ 完整闭环：输入想法 → AI 生成 → Worker 派发 → 云端编译 → **下载到 `emerald_glow-1.0.0.jar`**
+- ✅ Cloudflare：Worker 已部署、D1 已建表、三个密钥已写入、`modcraft.top` 已绑定
 
-## 二、已完成的部署（2026-10-06）
+真实产物见 `demo-jars/`。
 
-- Cloudflare 账户：A114514kkkk@outlook.com 的账户
-- D1 数据库：`modcraft`（id `a4a32b66-2935-43a8-879e-33e0bb2c5a85`，已建表）
-- Worker：`modcraft`，已部署，密钥 `DEEPSEEK_API_KEY / SESSION_SECRET / GITHUB_TOKEN` 已写入
-- 自定义域名：`modcraft.top` 已绑定（等待域名 NS 生效）
+## 二、待办（只差一步）
 
-### ⚠️ 域名还要做一步
-
-到 **modcraft.top 的购买商后台**，把域名的 DNS 服务器（NS）改成：
+到 **modcraft.top 的域名购买商后台**，把 DNS 服务器改成：
 
 ```
 elle.ns.cloudflare.com
 louis.ns.cloudflare.com
 ```
 
-改完后（几分钟到几小时），modcraft.top 就会正式指向本站。
+改完后（几分钟~几小时）modcraft.top 即正式启用，全站可用。
 
-## 三、GitHub 构建通道
+## 三、本地开发
 
-仓库：`xiaoheiHZ/modcraft`（构建工作流 `.github/workflows/build-mod.yml`）
+```powershell
+# 前端预览（8787）
+python -m http.server 8787 --directory public
 
-用户点「构建 JAR」后的完整链路：
-1. Worker 调 GitHub API dispatch 工作流（携带 spec）
-2. Actions 里 `modgen/generate.py` 把 spec 变成完整 Fabric 工程
-3. `./gradlew build` 编译出 jar → 上传 artifact
-4. Worker 轮询状态 → 完成后提供下载（zip 内含 jar）
+# 后端（8788），密钥读 .dev.vars
+npm run dev
 
-> 本地构建小贴士（国内网络）：生成的工程默认从 services.gradle.org 下载 Gradle，国内慢可换镜像：
-> ```powershell
-> $env:GRADLE_DIST_URL = 'https://mirrors.cloud.tencent.com/gradle/gradle-9.7.1-bin.zip'
-> python modgen/generate.py --spec spec.json --out project
-> ```
+# 重新部署到 Cloudflare
+npm run deploy
+
+# 线上试编译一个模组（GitHub Actions）
+# 直接在 GitHub 仓库 Actions 页面手动 Run workflow 即可
+```
+
+> 国内网络提示：本地 gradle 构建建议换镜像 `$env:GRADLE_DIST_URL='https://mirrors.cloud.tencent.com/gradle/gradle-9.7.1-bin.zip'` 后用生成器产出工程；正式编译走 Actions（海外网络）最稳。
 
 ## 四、套餐与限流（盈利开关）
 
@@ -63,27 +65,17 @@ louis.ns.cloudflare.com
 | free | deepseek-flash | low | 2000 tokens | 3 次 | 10 |
 | pro | deepseek-v4-pro | high | 6000 tokens | 30 次 | 24 |
 
-邮箱注册：未配置邮件服务时自动激活；配 `RESEND_API_KEY` + `MAIL_FROM` 后发真实验证码。
+个人 GitHub 令牌（ModCraft-Worker，repo+workflow 权限）用于推送与 Worker 派发构建，保存在 `.dev.vars`（本地）与 `wrangler secret`（线上）。
 
-## 五、常用命令
+## 五、安全须知
 
-```powershell
-npm run dev                # 本地后端（8788）
-npm run deploy             # 重新部署到 Cloudflare
-npm run db:init            # 远程初始化数据库（幂等）
-npx wrangler tail modcraft # 线上实时日志
-```
+1. 密钥只放 `.dev.vars` 与 `wrangler secret`，永不进仓库/前端。
+2. 在聊天中出现过的密码/密钥建议尽快轮换。
+3. 非 Mojang / Microsoft 官方产品；AI 生成内容请自行检查。
 
-## 六、安全须知
-
-1. 密钥只放 `.dev.vars`（本地）与 `wrangler secret`（线上），**永不进仓库/前端**。
-2. 曾在聊天中出现过的密钥建议定期轮换。
-3. AI 生成内容由用户自行检查后使用；本项目非 Mojang / Microsoft 官方产品。
-
-## 七、Roadmap
+## 六、Roadmap
 
 - [ ] 1.21.4+ / Forge / NeoForge 支持
 - [ ] 护甲套、生物、附魔、生物蛋
-- [ ] AI 贴图生成升级、作品广场
-- [ ] 产物存 R2 直链下载
+- [ ] 作品广场、产物存 R2 直链
 - [ ] 支付接入 → Pro 上线
