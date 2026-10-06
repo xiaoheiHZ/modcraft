@@ -47,7 +47,22 @@ const PLAN_DEFS = {
   },
 };
 
-/* 套餐是否在有效期内（到期自动回落到标准版） */
+/* 发放订单（后台确认 / 支付回调共用） */
+async function grantOrder(env, order) {
+  const target = await getUserById(env, order.user_id);
+  if (!target) return false;
+  if (order.kind === 'plan') {
+    const days = (PLAN_DEFS[order.plan] || {}).days || 30;
+    const base = (target.plan === order.plan && target.plan_expires_at && target.plan_expires_at > Date.now()) ? target.plan_expires_at : Date.now();
+    await env.DB.prepare('UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?').bind(order.plan, base + days * 86400000, target.id).run();
+  } else {
+    await env.DB.prepare('UPDATE users SET extra_credits = extra_credits + 1 WHERE id = ?').bind(target.id).run();
+  }
+  await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?").bind(Date.now(), order.id).run();
+  return true;
+}
+
+/* 有效套餐解析 */
 function effectivePlanName(user) {
   if (!user) return 'free';
   if (user.plan === 'free' || !PLAN_DEFS[user.plan]) return 'free';
@@ -83,6 +98,8 @@ const MC_VERSIONS = [
 ];
 const isPremiumVersion = v => String(v).startsWith('26.');
 const RESERVED_IDS = new Set(['minecraft', 'mod', 'test', 'modcraft', 'fabric', 'forge']);
+
+import { createHash } from 'node:crypto';
 
 /* ================= 小工具 ================= */
 const json = (data, status = 200, extra = {}) =>
@@ -148,6 +165,25 @@ function extractJson(text) {
     try { return JSON.parse(t.slice(start, end + 1)); } catch {}
   }
   return null;
+}
+
+/* ================= MD5（易支付签名用）—— nodejs_compat 官方实现，保证正确 ================= */
+const md5 = s => createHash('md5').update(String(s), 'utf8').digest('hex');
+
+/* 易支付签名：参数排序拼接 + Key + MD5 */
+function epaySign(params, key) {
+  const keys = Object.keys(params)
+    .filter(k => k !== 'sign' && k !== 'sign_type' && params[k] !== undefined && params[k] !== null && params[k] !== '')
+    .sort();
+  const str = keys.map(k => k + '=' + params[k]).join('&') + key;
+  return md5(str);
+}
+
+/* 支付通道：epay（易支付协议，扫码自动到账）> stripe（预留）> manual（人工） */
+function paymentMode(env) {
+  if (env.EPAY_API_URL && env.EPAY_PID && env.EPAY_KEY) return 'epay';
+  if (env.STRIPE_SECRET_KEY && env.PAYMENT_MODE === 'stripe') return 'stripe';
+  return 'manual';
 }
 
 /* ================= 会话 ================= */
@@ -471,7 +507,7 @@ async function handleApi(request, env, ctx) {
   /* ---- 健康检查 ---- */
   if (path === '/api/health') {
     return ok({
-      version: '0.4.0',
+      version: '0.5.0',
       mail: !!(env && env.RESEND_API_KEY),
       github: !!(env && env.GITHUB_TOKEN && env.GITHUB_REPO),
       deepseek: !!(env && env.DEEPSEEK_API_KEY),
@@ -507,9 +543,13 @@ async function handleApi(request, env, ctx) {
     } else {
       message = '注册成功！（未配置邮件服务，已自动激活）';
     }
+    const regUser = await getUserById(env, id);
+    if (needVerify) {
+      /* 未验证：不发放登录态，验证码校验通过后再登录 */
+      return ok({ message, need_verify: true, user: publicUser(regUser) });
+    }
     const token = await makeSession(env, id);
-    const user = await getUserById(env, id);
-    return ok({ message, need_verify: needVerify, user: publicUser(user), quota: await quotaInfo(env, user) }, 200, { 'set-cookie': sessionCookie(request, token) });
+    return ok({ message, need_verify: false, user: publicUser(regUser), quota: await quotaInfo(env, regUser) }, 200, { 'set-cookie': sessionCookie(request, token) });
   }
 
   /* ---- 登录 ---- */
@@ -520,7 +560,7 @@ async function handleApi(request, env, ctx) {
     if (!user) return fail('邮箱或密码错误', 401);
     const hash = await pbkdf2Hex(password, user.salt, Number(env.PBKDF2_ITERS || 20000));
     if (hash !== user.pass_hash) return fail('邮箱或密码错误', 401);
-    if (env.RESEND_API_KEY && !user.verified) return fail('账号尚未验证，请查收注册邮件里的验证码', 403);
+    if (env.RESEND_API_KEY && !user.verified) return fail('账号尚未验证：请输入邮箱验证码（可点击「重新发送验证码」）', 403, 'unverified');
     const token = await makeSession(env, user.id);
     return ok({ user: publicUser(user), quota: await quotaInfo(env, user) }, 200, { 'set-cookie': sessionCookie(request, token) });
   }
@@ -533,6 +573,13 @@ async function handleApi(request, env, ctx) {
   /* ---- 读取会话（后面所有接口共用；必须在引用 user 之前声明） ---- */
   const uid = await readSession(env, request);
   const user = uid ? await getUserById(env, uid) : null;
+
+  /* 未验证邮箱的账号：除少量开放接口外全部拦截（管理员/支付回调除外） */
+  if (user && !user.verified && env.RESEND_API_KEY
+      && !path.startsWith('/api/admin/') && !path.startsWith('/api/pay/')
+      && !['/api/me', '/api/logout', '/api/verify', '/api/verify/send'].includes(path)) {
+    return fail('账号尚未验证：请先输入邮箱验证码（可点击「重新发送验证码」）', 403, 'unverified');
+  }
 
   /* ================= 订单 / 支付 ================= */
   /* ---- 创建订单（套餐订阅或单次加油包） ---- */
@@ -551,9 +598,25 @@ async function handleApi(request, env, ctx) {
     await env.DB.prepare(
       'INSERT INTO orders (id, user_id, kind, plan, amount, status, created_at) VALUES (?,?,?,?,?,?,?)'
     ).bind(id, user.id, kind, planKey, amount, 'pending', Date.now()).run();
-    const pay = { mode: 'manual', amount, currency: 'CNY' };
-    if (env.STRIPE_SECRET_KEY && env.PAYMENT_MODE === 'stripe') {
-      pay.mode = 'stripe';
+    const pay = { mode: paymentMode(env), amount, currency: 'CNY' };
+    if (pay.mode === 'epay') {
+      /* 易支付协议：构造已签名的跳转支付地址（扫码自动到账，无需找管理员） */
+      const origin = new URL(request.url).origin;
+      const p = {
+        pid: env.EPAY_PID,
+        type: body.pay_type === 'alipay' ? 'alipay' : 'wxpay',
+        out_trade_no: id,
+        notify_url: origin + '/api/pay/notify',
+        return_url: origin + '/api/pay/return?order=' + id,
+        name: 'ModCraft ' + (kind === 'credit' ? '单次生成额度' : ((PLAN_DEFS[planKey] || {}).label || '套餐')) + ' ¥' + amount,
+        money: amount.toFixed(2),
+      };
+      p.sign = epaySign(p, env.EPAY_KEY);
+      p.sign_type = 'MD5';
+      const qs = Object.keys(p).map(k => k + '=' + encodeURIComponent(p[k])).join('&');
+      pay.pay_url = env.EPAY_API_URL + (env.EPAY_API_URL.includes('?') ? '&' : '?') + qs;
+      pay.types = ['wxpay', 'alipay'];
+    } else if (pay.mode === 'stripe') {
       pay.note = 'Stripe 通道已预留（需配置商户信息后启用）';
     } else {
       pay.instructions = env.PAY_INSTRUCTIONS || `请支付 ¥${amount}，支付时备注订单号（或支付后联系管理员告知订单号）。`;
@@ -570,6 +633,37 @@ async function handleApi(request, env, ctx) {
       'SELECT id, kind, plan, amount, status, created_at, paid_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20'
     ).bind(user.id).all();
     return ok({ orders: rows.results || [] });
+  }
+
+  /* ================= 支付回调（易支付协议：付款后服务器自动通知） ================= */
+  if (path === '/api/pay/notify' && method === 'POST') {
+    try {
+      const formText = await request.text();
+      const params = Object.fromEntries(new URLSearchParams(formText));
+      const signOk = params.sign && epaySign(params, env.EPAY_KEY) === String(params.sign).toLowerCase();
+      if (!signOk) return new Response('fail:sign', { status: 400 });
+      if (params.trade_status && params.trade_status !== 'TRADE_SUCCESS') return new Response('success');
+      const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(String(params.out_trade_no || '')).first();
+      if (!order) return new Response('fail:order', { status: 404 });
+      if (order.status !== 'paid') {
+        const granted = await grantOrder(env, order);
+        if (!granted) return new Response('fail:user', { status: 500 });
+      }
+      return new Response('success');
+    } catch (e) {
+      return new Response('fail', { status: 500 });
+    }
+  }
+
+  /* 支付完成后的返回页（自动关闭弹窗） */
+  if (path === '/api/pay/return' && method === 'GET') {
+    return new Response(
+      '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>支付完成 - ModCraft</title><meta name="robots" content="noindex"></head>' +
+      '<body style="background:#0d1117;color:#e8eef7;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">' +
+      '<div style="text-align:center"><h2>支付流程完成</h2><p style="color:#8ea0b8">正在确认到账，请回到 ModCraft 页面查看（本窗口将自动关闭）</p>' +
+      '<script>setTimeout(function(){try{window.close()}catch(e){}},1200);</script></div></body></html>',
+      { headers: { 'content-type': 'text/html; charset=utf-8' } }
+    );
   }
 
   /* ================= 管理后台（需要 ADMIN_TOKEN） ================= */
@@ -651,16 +745,8 @@ async function handleApi(request, env, ctx) {
       if (!status) return fail('非法状态');
       if (order.status === 'paid') return ok({ message: '该订单已处理' });
       if (status === 'paid') {
-        const target = await getUserById(env, order.user_id);
-        if (!target) return fail('用户不存在', 404);
-        if (order.kind === 'plan') {
-          const days = (PLAN_DEFS[order.plan] || {}).days || 30;
-          const base = (target.plan === order.plan && target.plan_expires_at && target.plan_expires_at > Date.now()) ? target.plan_expires_at : Date.now();
-          await env.DB.prepare('UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?').bind(order.plan, base + days * 86400000, target.id).run();
-        } else {
-          await env.DB.prepare('UPDATE users SET extra_credits = extra_credits + 1 WHERE id = ?').bind(target.id).run();
-        }
-        await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?").bind(Date.now(), order.id).run();
+        const granted = await grantOrder(env, order);
+        if (!granted) return fail('用户不存在', 404);
         return ok({ message: '已确认收款并发放' });
       }
       await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(status, order.id).run();

@@ -2,6 +2,7 @@
 name = "modcraft"
 main = "worker/src/index.js"
 compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 # 静态资源：public/ 目录会随 Worker 一起部署

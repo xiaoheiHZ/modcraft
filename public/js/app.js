@@ -467,14 +467,31 @@ function openBuyModal(title, bodyHtml) {
 }
 function closeBuyModal() { $('#buyModal').classList.add('hidden'); }
 
-async function startBuy(kind, planKey) {
+async function startBuy(kind, planKey, payType) {
   if (state.demo) { toast('演示模式：下单需要连接后端'); return; }
   if (!state.user) { toast('请先登录后再购买'); goto('account'); return; }
   try {
-    const d = await jpost('/api/order/create', { kind, plan: planKey });
+    const d = await jpost('/api/order/create', { kind, plan: planKey, pay_type: payType || 'wxpay' });
     const o = d.order;
     const pay = d.pay || {};
     const title = o.kind === 'credit' ? `单次购买 ¥${o.amount}` : `购买套餐 ¥${o.amount}`;
+    if (pay.mode === 'epay' && pay.pay_url) {
+      openBuyModal(title, `
+        <div>订单号：<span class="order-id">${esc(o.id)}</span> · 金额：<b>¥${o.amount}</b></div>
+        <div class="hint" style="margin-top:8px">已为你打开支付页面（微信/支付宝扫码）。支付完成后自动到账，本窗口会自动检测，请勿先关闭本页面。</div>
+        <div class="modal-actions">
+          <button class="btn small" id="reopenPay">重新打开支付页</button>
+          <button class="btn ghost small" id="switchAli">改用支付宝</button>
+          <button class="btn primary small" id="paidDone">已支付，立即刷新</button>
+        </div>
+        <div class="hint">若超过半分钟未到账，可点「立即刷新」，或稍后在「我的」页查看订单状态。</div>`);
+      window.open(pay.pay_url, '_blank');
+      $('#reopenPay').onclick = () => window.open(pay.pay_url, '_blank');
+      $('#switchAli').onclick = () => startBuy(kind, planKey, 'alipay');
+      $('#paidDone').onclick = () => pollOrderPaid(o.id, true);
+      pollOrderPaid(o.id);
+      return;
+    }
     const rows = [];
     rows.push(`<div>订单号：<span class="order-id">${esc(o.id)}</span>（支付时请备注订单号）</div>`);
     rows.push(`<div>金额：<b>¥${o.amount}</b> · 状态：<b>待支付</b></div>`);
@@ -487,6 +504,28 @@ async function startBuy(kind, planKey) {
     $('#copyOrder').onclick = () => { try { navigator.clipboard.writeText(o.id); toast('订单号已复制'); } catch { toast(o.id); } };
     $('#paidDone').onclick = () => { closeBuyModal(); toast('已记录，请等待管理员确认收款'); };
   } catch (e) { toast('下单失败：' + e.message); }
+}
+
+let payPollTimer = null;
+async function pollOrderPaid(orderId, single) {
+  if (payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+  let n = 0;
+  const check = async () => {
+    n++;
+    try {
+      const d = await jget('/api/orders');
+      const ord = (d.orders || []).find(x => x.id === orderId);
+      if (ord && ord.status === 'paid') {
+        if (payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+        closeBuyModal();
+        toast('支付成功，已到账！');
+        try { const me = await jget('/api/me'); state.user = me.user; state.quota = me.quota; renderUserChip(); renderAccount(); } catch {}
+      }
+    } catch {}
+    if (n >= 60 && payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+  };
+  await check();
+  if (!single) payPollTimer = setInterval(check, 3000);
 }
 
 function openCreditModal(msg) {
@@ -624,15 +663,14 @@ async function doAuth(kind) {
     if (isReg) {
       const d = await jpost('/api/register', { email, password });
       msg.textContent = d.message || '注册成功！';
-      state.user = d.user;
       if (d.need_verify) {
         pendingAuth = { email, password };
         $('#verifyHint').textContent = `验证码已发送到 ${email}，请查收（15 分钟内有效）。`;
         $('#registerForm').classList.add('hidden');
         $('#verifyForm').classList.remove('hidden');
-        renderUserChip();
         return;
       }
+      state.user = d.user;
     } else {
       const d = await jpost('/api/login', { email, password });
       state.user = d.user;
@@ -642,6 +680,15 @@ async function doAuth(kind) {
     renderUserChip(); renderAccount();
     await loadTasks(); renderTasks();
   } catch (e) {
+    if (e.code === 'unverified') {
+      pendingAuth = { email: (isReg ? $('#regEmail').value : $('#logEmail').value).trim(), password: isReg ? $('#regPassword').value : $('#logPassword').value };
+      $('#verifyHint').textContent = '账号尚未验证，请输入邮箱验证码（收不到可点击重新发送）。';
+      $('#loginForm').classList.add('hidden');
+      $('#registerForm').classList.add('hidden');
+      $('#verifyForm').classList.remove('hidden');
+      msg.textContent = '';
+      return;
+    }
     msg.textContent = '失败：' + e.message;
     msg.classList.add('err');
   }
@@ -712,6 +759,10 @@ function bind() {
   });
   $('#loginForm').onsubmit = e => { e.preventDefault(); doAuth('login'); };
   $('#registerForm').onsubmit = e => { e.preventDefault(); doAuth('register'); };
+  $$('.atab').forEach(b => {
+    const old = b.onclick;
+    b.addEventListener('click', () => { $('#verifyForm').classList.add('hidden'); }, true);
+  });
   $('#verifyForm').onsubmit = async e => {
     e.preventDefault();
     if (!pendingAuth) { toast('请先注册'); return; }

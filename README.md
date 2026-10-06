@@ -1,8 +1,17 @@
-# ModCraft · 方块梦工厂 v0.4
+# ModCraft · 方块梦工厂 v0.5
 
 > 玩家输入 Minecraft 模组想法 → AI（DeepSeek）设计规格 → GitHub Actions 自动构建 JAR → 一键下载。
 
 **线上地址**：https://modcraft.top ｜ **代码仓库**：https://github.com/xiaoheiHZ/modcraft
+
+## v0.5 新增
+
+- **注册严格验证**：未验证邮箱不能登录 / 生成 / 购买；注册后不再直接发登录态，验证码通过后才登录（防绕过）
+- **自动支付（无需找管理员）**：接入「易支付」通用协议——支付成功后服务器自动回调到账
+  - 启用方式：在 Cloudflare 配 3 个 secret：`EPAY_API_URL`（平台提交地址）/ `EPAY_PID` / `EPAY_KEY`
+  - 支持微信/支付宝扫码；支付页新窗口打开，原页面自动轮询到账，返回页自动关窗
+  - 未配置时保持人工确认模式（后台可确认收款）
+- Worker 启用 `nodejs_compat`（用 node:crypto 的 MD5 做签名，保证签名正确）
 
 ## v0.4 新增
 
@@ -27,10 +36,11 @@
 
 ## 邮件说明（重要）
 
-当前 Resend key 为**仅发送权限**，只能发送到 Resend 账号本人的邮箱；要对全体用户发信需要：
-1. 在 Resend 后台把 `modcraft.top` 添加为域名（或提供全权限 key / 把 DKIM 记录贴过来），
-2. 我们把 DKIM/SPF 记录加进 Cloudflare DNS 完成验证，
-3. 之后把 `MAIL_FROM` 换成 `ModCraft <noreply@send.modcraft.top>` 即可对所有用户发信。
+当前为**严格验证模式**：必须收到验证码并通过校验才能使用。由于现有 Resend key 是「仅发送」权限且未验证域名，验证码只能发到 Resend 账号本人的邮箱。要支持所有用户，二选一：
+1. 在 Resend 后台添加域名 `modcraft.top`，把 DKIM/SPF 记录加到 Cloudflare DNS，完成后把 `MAIL_FROM` 换成 `ModCraft <noreply@modcraft.top>`；
+2. 把 Resend key 升级为 Full access，然后运行 `tools/resend_domain_setup.ps1 -ResendKey <key>` 一键完成域名+DNS+验证。
+
+> 临时可用：把 `REQUIRE` 校验沿用当前逻辑（收不到码的用户可由管理员在后台「激活」）。
 
 ## 目录结构
 
