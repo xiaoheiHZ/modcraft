@@ -359,7 +359,7 @@ public class @CLS@ implements ModInitializer {
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static final List<Item> ALL_ITEMS = new ArrayList<>();
 
-	public static ResourceLocation id(String path) {
+	public static @IDCLASS@ id(String path) {
 @ID_BODY@
 	}
 
