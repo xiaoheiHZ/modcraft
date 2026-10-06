@@ -250,9 +250,10 @@ dependencies {
 }
 
 processResources {
-	inputs.property "version", project.version
+	def version = project.version
+	inputs.property "version", version
 	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		expand "version": version
 	}
 }
 
@@ -270,7 +271,7 @@ java {
 
 GRADLE_PROPERTIES = '''org.gradle.jvmargs=-Xmx2G
 org.gradle.parallel=true
-org.gradle.configuration-cache=true
+org.gradle.configuration-cache=false
 
 minecraft_version=@MC@
 loader_version=@LOADER@
@@ -414,9 +415,10 @@ def build_java_body(spec, cfg):
         elif kind == 'food':
             n = int(it.get('nutrition') or 4)
             s = float(it.get('saturation') or 0.6)
+            sat = f'saturationModifier({s}F)' if cfg['new_tool_api'] else f'saturationMod({s}F)'
             lines.append(
                 f'\t\tItem {var} = register("{vid}", new Item(new Item.Properties().food('
-                f'new FoodProperties.Builder().nutrition({n}).saturationModifier({s}F).build())));')
+                f'new FoodProperties.Builder().nutrition({n}).{sat}.build())));')
             groups.setdefault('FOOD_AND_DRINKS', []).append(var)
         elif kind == 'block':
             lines.append(
@@ -429,7 +431,7 @@ def build_java_body(spec, cfg):
     for group, vars in groups.items():
         lines.append('\t\tItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.' + group + ').register(entries -> {')
         for v in vars:
-            lines.append('\t\t\tentries.add(' + v + ');')
+            lines.append('\t\t\tentries.accept(new ItemStack(' + v + '));')
         lines.append('\t\t});')
     return '\n'.join(lines)
 
