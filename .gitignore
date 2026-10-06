@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+.dev.vars
+dist/
+*.zip
+_tmp_*
+*.log
+__pycache__/
+.venv/

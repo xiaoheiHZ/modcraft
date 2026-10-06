@@ -1,0 +1,20 @@
+{
+  "name": "modcraft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ModCraft 方块梦工厂：玩家输入 MC 模组想法，AI 设计规格，GitHub Actions 自动构建 JAR（Cloudflare Worker 后端）",
+  "scripts": {
+    "dev": "wrangler dev --port 8788",
+    "deploy": "wrangler deploy",
+    "preview": "python -m http.server 8787 --directory public",
+    "db:init": "wrangler d1 execute blockdream --file worker/schema.sql --remote",
+    "db:init:local": "wrangler d1 execute blockdream --file worker/schema.sql --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "workerd@1.20261001.1": true,
+    "esbuild@0.28.1": true
+  }
+}

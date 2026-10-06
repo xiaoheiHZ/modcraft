@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ModCraft · 方块梦工厂 —— 用一句话造一个 Minecraft 模组</title>
+<meta name="description" content="输入你的 MC 模组想法，AI 设计规格，GitHub Actions 自动构建 JAR，一键下载。">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{ if(localStorage.getItem('bd_theme')==='light') document.documentElement.classList.add('light'); }catch(e){}</script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" data-goto="home">
+    <img src="favicon.svg" alt="" class="brand-logo">
+    <span class="brand-name">ModCraft</span>
+    <span class="brand-sub">方块梦工厂</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="home"><img class="mc-icon" data-mc="grass_block" alt="">首页</button>
+    <button class="tab" data-tab="assets"><img class="mc-icon" data-mc="chest" alt="">素材库</button>
+    <button class="tab" data-tab="create"><img class="mc-icon" data-mc="crafting_table" alt="">造模组</button>
+    <button class="tab" data-tab="account"><img class="mc-icon" data-mc="player_head" alt="">我的</button>
+  </nav>
+  <button class="userchip" id="themeToggle" title="切换深浅色"><img class="mc-icon" data-mc="torch" alt="">浅色</button>
+  <button class="userchip" id="userChip" data-goto="account">未登录</button>
+</header>
+
+<div id="demoBanner" class="banner hidden">
+  <img class="mc-icon" data-mc="redstone_torch" alt=""> <b>演示模式</b>：当前未连接后端（Cloudflare Worker）。注册 / 登录 / 生成流程为本地模拟，部署后端后自动切换为真实流程。
+</div>
+
+<main>
+
+  <!-- ============ 首页 ============ -->
+  <section id="view-home" class="view active">
+    <div class="hero">
+      <h1>把你脑子里的模组，<span class="hl">变成能装的 JAR</span></h1>
+      <p class="hero-sub">输入一句中文想法 → AI 设计物品 / 配方 / 贴图 → GitHub Actions 云端编译 → 下载放进 <code>mods</code> 文件夹，开玩。</p>
+      <div class="cta-row">
+        <button class="btn primary big" data-goto="create"><img class="mc-icon" data-mc="crafting_table" alt="">开始造模组</button>
+        <button class="btn ghost big" data-goto="assets"><img class="mc-icon" data-mc="chest" alt="">先逛逛素材库</button>
+      </div>
+      <div class="hero-note">不会写代码也能拥有自己的模组 · Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21</div>
+    </div>
+
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>描述想法</h3>
+        <p>中文一句话就行，比如「会发射闪电的绿宝石三叉戟 + 会爆炸的苦力怕盾牌」。</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>AI 设计</h3>
+        <p>DeepSeek V4.1 Flash 生成结构化规格：物品、数值、配方、贴图配色。</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>云构建下载</h3>
+        <p>GitHub Actions 实时编译成 <code>.jar</code>，完成后一键下载，拖进游戏即用。</p>
+      </div>
+    </div>
+
+    <div class="pricing">
+      <h2 class="section-title">套餐</h2>
+      <div class="price-grid">
+        <div class="price-card">
+          <div class="price-head"><img class="mc-icon" data-mc="emerald" alt="">免费版 <span class="badge">默认</span></div>
+          <div class="price-amount">¥0</div>
+          <ul>
+            <li>DeepSeek V4.1 Flash · 低思考档</li>
+            <li>每天 3 次生成</li>
+            <li>单次输出 ≤ 2000 tokens</li>
+            <li>单模组 ≤ 10 个物品</li>
+            <li>云端队列构建</li>
+          </ul>
+        </div>
+        <div class="price-card pro">
+          <div class="price-head"><img class="mc-icon" data-mc="nether_star" alt="">专业版 <span class="badge gold">内测中</span></div>
+          <div class="price-amount">即将定价</div>
+          <ul>
+            <li>deepseek-v4-pro · 深度思考</li>
+            <li>每天 30 次生成</li>
+            <li>单次输出 ≤ 6000 tokens</li>
+            <li>单模组 ≤ 24 个物品</li>
+            <li>优先构建 + 自定义贴图</li>
+          </ul>
+          <button class="btn gold" id="btnPro">申请内测</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="faq">
+      <h2 class="section-title">常见问题</h2>
+      <details><summary>需要会写代码吗？</summary><p>不需要。你只管提想法，规格设计、代码生成、编译全自动完成。</p></details>
+      <details><summary>生成的模组怎么用？</summary><p>安装 Fabric Loader + Fabric API，把下载的 jar 放进 <code>.minecraft/mods</code> 即可。1.20.1 最稳定，1.21.1 推荐，1.20.4 / 1.21 同步支持。</p></details>
+      <details><summary>能做多复杂？</summary><p>当前支持：物品、剑 / 镐 / 斧 / 锹 / 锄（六种材质档）、食物、方块，自动带配方和贴图。护甲、生物、附魔正在路上。</p></details>
+      <details><summary>数据安全吗？</summary><p>仅用邮箱注册；AI Key 保存在服务端，不暴露给浏览器；构建在一次性云端容器进行。</p></details>
+    </div>
+  </section>
+
+  <!-- ============ 素材库 ============ -->
+  <section id="view-assets" class="view">
+    <div class="toolbar">
+      <input id="assetSearch" class="input" type="search" placeholder="搜索物品 / 方块：中文、English 或 id 都行…">
+      <select id="assetVersion" class="input select">
+        <option value="1.21.1">贴图版本 1.21.1</option>
+        <option value="1.21">贴图版本 1.21</option>
+        <option value="1.20.4">贴图版本 1.20.4</option>
+        <option value="1.20.1">贴图版本 1.20.1</option>
+      </select>
+    </div>
+    <div id="assetGroups" class="chips"></div>
+    <div class="asset-meta"><span id="assetCount">共 0 个素材</span><span class="hint">点击卡片加入素材篮 → 造模组时可作为贴图 / 材料参考</span></div>
+    <div id="assetGrid" class="grid"></div>
+  </section>
+
+  <!-- ============ 造模组 ============ -->
+  <section id="view-create" class="view">
+    <div class="create-grid">
+      <div class="panel">
+        <h3>① 描述你的模组想法</h3>
+        <textarea id="ideaInput" class="input" maxlength="1200" rows="6"
+          placeholder="例：我想要一套远古宝石主题的装备——一把会发光的宝石剑、一把挖矿加速的宝石镐，再加一个吃了能短暂跳跃提升的宝石果实…"></textarea>
+        <div class="row wrap">
+          <label class="field">目标版本
+            <select id="mcVersion" class="input select">
+              <option value="1.20.1">1.20.1（稳定）</option>
+              <option value="1.20.4">1.20.4</option>
+              <option value="1.21.1">1.21.1（推荐）</option>
+              <option value="1.21">1.21</option>
+            </select>
+          </label>
+          <label class="field">加载器
+            <select id="loaderSelect" class="input select">
+              <option value="fabric">Fabric</option>
+              <option value="forge" disabled>Forge（即将支持）</option>
+              <option value="neoforge" disabled>NeoForge（即将支持）</option>
+            </select>
+          </label>
+          <label class="field checkbox"><input type="checkbox" id="useBasket" checked> 让 AI 参考素材篮（<span id="basketInlineCount">0</span> 个）</label>
+        </div>
+        <div id="basketPreview" class="basket-preview"></div>
+        <button id="btnGenerate" class="btn primary big full"><img class="mc-icon" data-mc="enchanted_book" alt="">让 AI 设计模组</button>
+        <p class="hint" id="quotaHint"></p>
+      </div>
+
+      <div class="panel">
+        <h3>② 进度与结果</h3>
+        <ol id="timeline" class="timeline">
+          <li data-step="queued"><i></i>排队中</li>
+          <li data-step="ai"><i></i>AI 正在设计规格…</li>
+          <li data-step="spec"><i></i>规格已生成</li>
+          <li data-step="build"><i></i>GitHub Actions 云构建中…</li>
+          <li data-step="done"><i></i>完成，可下载 JAR</li>
+        </ol>
+        <div id="specPreview" class="spec-preview empty">还没有任务。左边写好想法，点「让 AI 设计模组」。</div>
+        <div id="buildActions" class="hidden">
+          <button id="btnBuild" class="btn primary"><img class="mc-icon" data-mc="anvil" alt="">开始构建 JAR</button>
+          <button id="btnReset" class="btn ghost">重来</button>
+        </div>
+        <div id="resultBox" class="result hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 我的 ============ -->
+  <section id="view-account" class="view">
+    <div id="authPanel" class="panel narrow">
+      <div class="auth-tabs">
+        <button class="atab active" data-auth="login">登录</button>
+        <button class="atab" data-auth="register">注册</button>
+      </div>
+      <form id="loginForm" class="auth-form">
+        <label class="field">邮箱<input id="loginEmail" class="input" type="email" required placeholder="you@example.com"></label>
+        <label class="field">密码<input id="loginPassword" class="input" type="password" required minlength="8" placeholder="至少 8 位"></label>
+        <button class="btn primary full" type="submit">登录</button>
+      </form>
+      <form id="registerForm" class="auth-form hidden">
+        <label class="field">邮箱<input id="regEmail" class="input" type="email" required placeholder="you@example.com"></label>
+        <label class="field">密码<input id="regPassword" class="input" type="password" required minlength="8" placeholder="至少 8 位，建议字母+数字"></label>
+        <button class="btn primary full" type="submit">注册（邮箱即账号）</button>
+        <p class="hint">未配置邮件服务时会自动激活（开发模式）；配置后需点邮件里的验证链接。</p>
+      </form>
+      <p id="authMsg" class="auth-msg"></p>
+    </div>
+
+    <div id="profilePanel" class="panel hidden">
+      <div class="profile-head">
+        <div>
+          <div class="profile-email" id="profileEmail">-</div>
+          <div class="profile-plan">套餐：<b id="profilePlan">免费版</b> · 今日剩余 <b id="profileQuota">-</b> 次</div>
+        </div>
+        <button id="btnLogout" class="btn ghost">退出登录</button>
+      </div>
+      <div class="token-usage">
+        <div class="token-bar"><div id="tokenBarFill"></div></div>
+        <span id="tokenBarText">累计消耗 0 tokens</span>
+      </div>
+      <h3>我的模组任务 <button id="btnRefreshTasks" class="btn ghost small">刷新</button></h3>
+      <div id="taskList" class="task-list"></div>
+    </div>
+  </section>
+
+</main>
+
+<div id="basketBar" class="basket-bar hidden">
+  <span><img class="mc-icon" data-mc="shulker_box" alt="">素材篮：<b id="basketCount">0</b> 个</span>
+  <button id="btnBasketClear" class="btn ghost small">清空</button>
+  <button id="btnBasketGo" class="btn primary small">去造模组</button>
+</div>
+
+<footer class="footer">
+  <div>ModCraft · 方块梦工厂 —— 非 Mojang / Microsoft 官方产品；AI 生成内容请自行检查后再使用。</div>
+  <div class="footer-sub">Minecraft 素材贴图来自社区镜像仓库（InventivetalentDev/minecraft-assets），版权归 Mojang 所有。</div>
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/data-mc.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

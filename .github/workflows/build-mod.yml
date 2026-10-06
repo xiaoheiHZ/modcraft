@@ -1,0 +1,99 @@
+name: build-mod
+run-name: build-${{ github.event.inputs.task_id }}
+
+# 由 BlockDream Worker 通过 workflow_dispatch 触发；也可手动在 Actions 页面跑（填 task_id / spec_b64）
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'BlockDream 任务ID（用于回传状态）'
+        required: true
+        type: string
+      spec_b64:
+        description: '模组规格（Base64 编码的 JSON）'
+        required: true
+        type: string
+      java_version:
+        description: 'JDK 版本（1.20.1→17 / 1.21.1→21）'
+        required: false
+        default: '17'
+        type: string
+      hook_url:
+        description: '构建完成后的回调地址（可空）'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.event.inputs.task_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK ${{ github.event.inputs.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ github.event.inputs.java_version }}
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 Pillow（贴图调色用，失败不阻塞）
+        run: pip install pillow || true
+
+      - name: 解析规格
+        env:
+          SPEC_B64: ${{ github.event.inputs.spec_b64 }}
+        run: |
+          python - <<'PY'
+          import base64, os, pathlib
+          spec = base64.b64decode(os.environ['SPEC_B64']).decode('utf-8')
+          pathlib.Path('spec.json').write_text(spec, encoding='utf-8')
+          print('spec 就绪，长度', len(spec))
+          PY
+
+      - name: 生成模组工程
+        run: python modgen/generate.py --spec spec.json --out project
+
+      - name: 编译 JAR（首次约 3-6 分钟）
+        working-directory: project
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --stacktrace
+
+      - name: 收集产物
+        run: |
+          mkdir -p dist
+          find project/build/libs -name '*.jar' ! -name '*-sources.jar' -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar-${{ github.event.inputs.task_id }}
+          path: dist/*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 回调后端
+        if: always()
+        env:
+          HOOK_URL: ${{ github.event.inputs.hook_url }}
+          TASK_ID: ${{ github.event.inputs.task_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then echo "无回调地址，跳过"; exit 0; fi
+          curl -sS -m 20 -X POST "$HOOK_URL" -H "Content-Type: application/json" \
+            -d "{\"task_id\":\"$TASK_ID\",\"status\":\"$JOB_STATUS\",\"run_id\":\"${{ github.run_id }}\"}" || true

@@ -1,0 +1,23 @@
+# ModCraft · 方块梦工厂 Cloudflare Worker 配置
+name = "modcraft"
+main = "worker/src/index.js"
+compatibility_date = "2026-06-01"
+workers_dev = true
+
+# 静态资源：public/ 目录会随 Worker 一起部署
+# 匹配到的文件直接返回；其余请求（含 /api/*）进入 Worker
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# D1 数据库：先执行 npx wrangler d1 create blockdream，再把 id 填到这里
+[[d1_databases]]
+binding = "DB"
+database_name = "modcraft"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+[vars]
+GITHUB_REPO = "xiaoheiHZ/modcraft"
+# 其他密钥（DEEPSEEK_API_KEY / SESSION_SECRET / GITHUB_TOKEN 等）用：
+#   npx wrangler secret put <名字>
+# 本地开发写在 .dev.vars（已被 .gitignore 排除）
