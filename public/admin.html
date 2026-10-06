@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ModCraft 管理后台</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{ if(localStorage.getItem('bd_theme')==='light') document.documentElement.classList.add('light'); }catch(e){}</script>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 14px; font-size: 13px; color: var(--muted); }
+  .stat-card b { font-size: 22px; color: var(--accent); display: block; font-family: var(--mono); margin-top: 4px; }
+  table.admin { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  table.admin th, table.admin td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+  table.admin th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .ok { color: var(--accent); } .warn { color: var(--gold); } .bad { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="favicon.svg" class="brand-logo" alt="">
+    <span class="brand-name">ModCraft</span>
+    <span class="brand-sub">管理后台</span>
+  </div>
+  <div style="margin-left:auto; display:flex; gap:8px">
+    <button class="userchip" id="themeToggle">浅色</button>
+    <button class="userchip" id="logoutBtn">退出</button>
+  </div>
+</header>
+
+<main style="max-width:1200px">
+  <div id="loginPanel" class="panel narrow" style="max-width:430px;margin:60px auto">
+    <h3>管理员登录</h3>
+    <form id="loginForm" class="auth-form">
+      <label class="field">管理令牌（ADMIN_TOKEN）<input id="adminToken" class="input" type="password" placeholder="服务器 secrets 中配置的令牌" required></label>
+      <button class="btn primary full" type="submit">进入后台</button>
+    </form>
+    <p class="hint">令牌只保存在浏览器会话里，关闭标签页即失效。</p>
+  </div>
+
+  <div id="dashPanel" class="hidden">
+    <div class="chips" id="adminTabs">
+      <button class="chip active" data-atab="stats">总览</button>
+      <button class="chip" data-atab="users">用户</button>
+      <button class="chip" data-atab="orders">订单</button>
+      <button class="chip" data-atab="tasks">任务</button>
+    </div>
+    <div id="adminBody"></div>
+  </div>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="js/admin.js"></script>
+</body>
+</html>

@@ -25,33 +25,44 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------- 版本配置
+# gen 代码生成代系：
+#   A  = 1.20.x（经典工具构造器 / saturationMod / 复数数据目录 / new ResourceLocation）
+#   B  = 1.21~1.21.1（属性组件工具 / saturationModifier / 单数目录 / fromNamespaceAndPath）
+#   B2 = 1.21.4（ToolMaterial 内联构造器 / 字符串配方材料 / items/ 物品模型目录）
+#   C  = 26.x（Identifier / fabric-loom 插件 / Java 25；需付费）
 VERSIONS = {
-    '1.20.1': {
-        'mc': '1.20.1', 'release': 17, 'loader': '0.19.5',
-        'fabric_api': '0.92.12+1.20.1', 'loom': '1.18-SNAPSHOT',
-        'loot_dir': 'loot_tables', 'recipe_dir': 'recipes',      # 1.20.x 复数目录
-        'new_tool_api': False,
-    },
-    '1.20.4': {
-        'mc': '1.20.4', 'release': 17, 'loader': '0.19.5',
-        'fabric_api': '0.97.3+1.20.4', 'loom': '1.18-SNAPSHOT',
-        'loot_dir': 'loot_tables', 'recipe_dir': 'recipes',      # 1.20.x 复数目录
-        'new_tool_api': False,
-    },
-    '1.21': {
-        'mc': '1.21', 'release': 21, 'loader': '0.19.5',
-        'fabric_api': '0.102.0+1.21', 'loom': '1.18-SNAPSHOT',
-        'loot_dir': 'loot_table', 'recipe_dir': 'recipe',        # 1.21+ 单数目录
-        'new_tool_api': True,
-    },
-    '1.21.1': {
-        'mc': '1.21.1', 'release': 21, 'loader': '0.19.5',
-        'fabric_api': '0.116.17+1.21.1', 'loom': '1.18-SNAPSHOT',
-        'loot_dir': 'loot_table', 'recipe_dir': 'recipe',        # 1.21+ 单数目录
-        'new_tool_api': True,
-    },
+    '1.20':   dict(mc='1.20',   release=17, fabric_api='0.83.0+1.20',     gen='A'),
+    '1.20.1': dict(mc='1.20.1', release=17, fabric_api='0.92.12+1.20.1',  gen='A'),
+    '1.20.2': dict(mc='1.20.2', release=17, fabric_api='0.91.6+1.20.2',   gen='A'),
+    '1.20.4': dict(mc='1.20.4', release=17, fabric_api='0.97.3+1.20.4',   gen='A'),
+    '1.21':   dict(mc='1.21',   release=21, fabric_api='0.102.0+1.21',    gen='B'),
+    '1.21.1': dict(mc='1.21.1', release=21, fabric_api='0.116.17+1.21.1', gen='B'),
+    '1.21.4': dict(mc='1.21.4', release=21, fabric_api='0.119.4+1.21.4',  gen='B2'),
+    '26.1':   dict(mc='26.1',   release=25, fabric_api='0.145.1+26.1',    gen='C'),
+    '26.2':   dict(mc='26.2',   release=25, fabric_api='0.161.0+26.2',    gen='C'),
+    '26.3':   dict(mc='26.3',   release=25, fabric_api='0.161.0+26.3',    gen='C'),
+}
+GEN_CAPS = {
+    'A':  dict(tool_style='old',    food_method='saturationMod',     recipe_style='v1',
+               data_dirs='plural',   items_folder=False, id_style='ctor',
+               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+               dep_style='mod',      tab_style='entries', premium=False),
+    'B':  dict(tool_style='attrs',  food_method='saturationModifier', recipe_style='v2',
+               data_dirs='singular', items_folder=False, id_style='fromNS',
+               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+               dep_style='mod',      tab_style='entries', premium=False),
+    'B2': dict(tool_style='modern', food_method='saturationModifier', recipe_style='v3',
+               data_dirs='singular', items_folder=True,  id_style='fromNS',
+               plugin='net.fabricmc.fabric-loom-remap', mappings_line=True,
+               dep_style='mod',      tab_style='entries', premium=False),
+    'C':  dict(tool_style='classic26', food_method='saturationModifier', recipe_style='v3',
+               data_dirs='singular', items_folder=True,  id_style='idclass',
+               plugin='net.fabricmc.fabric-loom',      mappings_line=False,
+               dep_style='impl',     tab_style='output',  premium=True),
 }
 DEFAULT_VERSION = '1.20.1'
+LOADER = '0.19.5'
+LOOM = '1.18-SNAPSHOT'
 
 TEX_CDNS = [
     'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@{ver}/assets/minecraft/',
@@ -84,6 +95,9 @@ TOOL_DMG = {'sword': 3, 'pickaxe': 1, 'axe': 5, 'shovel': 1, 'hoe': 0}
 TOOL_SPD = {'sword': -2.4, 'pickaxe': -2.8, 'axe': -3.0, 'shovel': -3.0, 'hoe': -3.0}
 TOOL_GROUP = {'sword': 'COMBAT', 'pickaxe': 'TOOLS_AND_UTILITIES', 'axe': 'TOOLS_AND_UTILITIES',
               'shovel': 'TOOLS_AND_UTILITIES', 'hoe': 'TOOLS_AND_UTILITIES'}
+TAB_IDS = {'COMBAT': 'combat', 'TOOLS_AND_UTILITIES': 'tools_and_utilities',
+           'FOOD_AND_DRINKS': 'food_and_drinks', 'INGREDIENTS': 'ingredients',
+           'BUILDING_BLOCKS': 'building_blocks'}
 RECIPE_SHAPES = {
     'sword': ['X', 'X', 'S'],
     'pickaxe': ['XXX', ' S ', ' S '],
@@ -227,7 +241,7 @@ rootProject.name = '@MODID@'
 '''
 
 BUILD_GRADLE = '''plugins {
-	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id '@PLUGIN@' version "${loom_version}"
 	id 'maven-publish'
 }
 
@@ -244,9 +258,10 @@ loom {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings loom.officialMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+@MAPPINGS_BLOCK@	@DEPPFX@ "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	@DEPPFX@ "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 processResources {
@@ -324,10 +339,10 @@ FABRIC_MOD_JSON = '''{
 MAIN_CLASS = '''package @PKG@;
 
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+@EXTRA_IMPORTS@
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.@IDCLASS@;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.block.Block;
@@ -402,20 +417,28 @@ def build_java_body(spec, cfg):
             dmg = int(it.get('attack') or TOOL_DMG[kind])
             spd = TOOL_SPD[kind]
             props = f'new Item.Properties().stacksTo(1).durability({dur})'
-            if cfg['new_tool_api']:
+            style = cfg['tool_style']
+            if style == 'attrs':                      # B：属性组件写法
                 if kind == 'sword':
                     props += f'.attributes(SwordItem.createAttributes(Tiers.{tier}, {dmg}, {spd}F))'
                 else:
                     props += f'.attributes(DiggerItem.createAttributes(Tiers.{tier}, {dmg}, {spd}F))'
                 ctor = f'new {TOOL_CLASS[kind]}(Tiers.{tier}, {props})'
-            else:
+            elif style == 'modern':                   # B2 / C：ToolMaterial 内联构造器
+                ctor = f'new {TOOL_CLASS[kind]}(ToolMaterial.{tier}, {dmg}, {spd}F, {props})'
+            elif style == 'classic26':                # 26.x：剑/镐用 Properties 内联，其余用现有类
+                if kind in ('sword', 'pickaxe'):
+                    ctor = f'new Item(new Item.Properties().{kind}(ToolMaterial.{tier}, {dmg}F, {spd}F))'
+                else:
+                    ctor = f'new {TOOL_CLASS[kind]}(ToolMaterial.{tier}, {dmg}F, {spd}F, new Item.Properties())'
+            else:                                     # A：经典构造器
                 ctor = f'new {TOOL_CLASS[kind]}(Tiers.{tier}, {dmg}, {spd}F, {props})'
             lines.append(f'\t\tItem {var} = register("{vid}", {ctor});')
             groups.setdefault(TOOL_GROUP[kind], []).append(var)
         elif kind == 'food':
             n = int(it.get('nutrition') or 4)
             s = float(it.get('saturation') or 0.6)
-            sat = f'saturationModifier({s}F)' if cfg['new_tool_api'] else f'saturationMod({s}F)'
+            sat = f"{cfg['food_method']}({s}F)"
             lines.append(
                 f'\t\tItem {var} = register("{vid}", new Item(new Item.Properties().food('
                 f'new FoodProperties.Builder().nutrition({n}).{sat}.build())));')
@@ -428,11 +451,21 @@ def build_java_body(spec, cfg):
             groups.setdefault('BUILDING_BLOCKS', []).append(var)
     if groups:
         lines.append('')
-    for group, vars in groups.items():
-        lines.append('\t\tItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.' + group + ').register(entries -> {')
-        for v in vars:
-            lines.append('\t\t\tentries.accept(new ItemStack(' + v + '));')
-        lines.append('\t\t});')
+    if cfg['tab_style'] == 'output':
+        for group, vars in groups.items():
+            gid = TAB_IDS.get(group, group.lower())
+            lines.append(
+                '\t\tCreativeModeTabEvents.modifyOutputEvent(ResourceKey.create(Registries.CREATIVE_MODE_TAB, '
+                'Identifier.fromNamespaceAndPath("minecraft", "' + gid + '"))).register(output -> {')
+            for v in vars:
+                lines.append('\t\t\toutput.accept(new ItemStack(' + v + '), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);')
+            lines.append('\t\t});')
+    else:
+        for group, vars in groups.items():
+            lines.append('\t\tItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.' + group + ').register(entries -> {')
+            for v in vars:
+                lines.append('\t\t\tentries.accept(new ItemStack(' + v + '));')
+            lines.append('\t\t});')
     return '\n'.join(lines)
 
 
@@ -452,20 +485,23 @@ def make_recipe(ns, it, cfg):
         category = 'building'
     else:
         return None
-    result = {'id': f'{ns}:{vid}', 'count': 1} if cfg['new_tool_api'] else {'item': f'{ns}:{vid}', 'count': 1}
+    style = cfg['recipe_style']
+    if style == 'v1':
+        result = {'item': f'{ns}:{vid}', 'count': 1}
+        key_ing = lambda m: {'item': f'minecraft:{m}'}
+    else:
+        result = {'id': f'{ns}:{vid}', 'count': 1}
+        key_ing = (lambda m: f'minecraft:{m}') if style == 'v3' else (lambda m: {'item': f'minecraft:{m}'})
     out = {
         'type': 'minecraft:crafting_shaped',
         'category': category,
-        'key': {
-            'X': {'item': f'minecraft:{material}'},
-            'S': {'item': 'minecraft:stick'},
-        },
+        'key': {'X': key_ing(material), 'S': key_ing('stick')},
         'pattern': pattern,
         'result': result,
     }
     if 'S' not in ''.join(pattern):
         del out['key']['S']
-    if not cfg['new_tool_api']:
+    if style == 'v1':
         out['show_notification'] = True
     return out
 
@@ -486,7 +522,13 @@ def make_loot(ns, it):
 def generate(spec_path, out_dir):
     spec = json.loads(Path(spec_path).read_text(encoding='utf-8'))
     mc_version = spec.get('mc_version') if spec.get('mc_version') in VERSIONS else DEFAULT_VERSION
-    cfg = VERSIONS[mc_version]
+    base = dict(VERSIONS[mc_version])
+    cfg = dict(base)
+    cfg.update(GEN_CAPS[base['gen']])
+    cfg['loader'] = LOADER
+    cfg['loom'] = LOOM
+    cfg['loot_dir'] = 'loot_tables' if cfg['data_dirs'] == 'plural' else 'loot_table'
+    cfg['recipe_dir'] = 'recipes' if cfg['data_dirs'] == 'plural' else 'recipe'
 
     mod_id = sanitize_id(spec.get('mod_id'), 'dream_mod')
     if len(mod_id) < 2:
@@ -512,20 +554,33 @@ def generate(spec_path, out_dir):
     data = res / 'data' / ns
     for d in (java_dir, assets / 'lang', assets / 'models/item', assets / 'models/block',
               assets / 'blockstates', assets / 'textures/item', assets / 'textures/block',
-              data / cfg['recipe_dir'], data / cfg['loot_dir'] / 'blocks'):
+              assets / 'items', data / cfg['recipe_dir'], data / cfg['loot_dir'] / 'blocks'):
         d.mkdir(parents=True, exist_ok=True)
 
     print(f'== 生成模组 {mod_name} ({mod_id}) for {mc_version} ==')
 
     # ---------- Java ----------
-    id_body = ('\t\treturn ResourceLocation.fromNamespaceAndPath(MOD_ID, path);'
-               if cfg['new_tool_api'] else '\t\treturn new ResourceLocation(MOD_ID, path);')
+    id_class = 'Identifier' if cfg['id_style'] == 'idclass' else 'ResourceLocation'
+    if cfg['id_style'] == 'ctor':
+        id_body = '\t\treturn new ResourceLocation(MOD_ID, path);'
+    elif cfg['id_style'] == 'fromNS':
+        id_body = '\t\treturn ResourceLocation.fromNamespaceAndPath(MOD_ID, path);'
+    else:
+        id_body = '\t\treturn Identifier.fromNamespaceAndPath(MOD_ID, path);'
     body = build_java_body({'items': items}, cfg)
+    if cfg['tab_style'] == 'output':
+        extra_imports = ('import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;\n'
+                         'import net.minecraft.core.registries.Registries;\n'
+                         'import net.minecraft.resources.ResourceKey;')
+    else:
+        extra_imports = 'import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;'
     java_src = (MAIN_CLASS
                 .replace('@PKG@', pkg)
                 .replace('@CLS@', cls)
                 .replace('@MODID@', mod_id)
                 .replace('@NAME@', mod_name)
+                .replace('@EXTRA_IMPORTS@', extra_imports)
+                .replace('@IDCLASS@', id_class)
                 .replace('@ID_BODY@', id_body)
                 .replace('@BODY@', body))
     (java_dir / f'{cls}.java').write_text(java_src, encoding='utf-8')
@@ -544,8 +599,14 @@ def generate(spec_path, out_dir):
 
     # ---------- gradle ----------
     (out / 'settings.gradle').write_text(SETTINGS_GRADLE.replace('@MODID@', mod_id), encoding='utf-8')
-    (out / 'build.gradle').write_text(BUILD_GRADLE.replace('@MODID@', mod_id).replace('@RELEASE@', str(cfg['release'])),
-                                      encoding='utf-8')
+    (out / 'build.gradle').write_text(
+        BUILD_GRADLE
+        .replace('@MODID@', mod_id)
+        .replace('@RELEASE@', str(cfg['release']))
+        .replace('@PLUGIN@', cfg['plugin'])
+        .replace('@DEPPFX@', 'modImplementation' if cfg['dep_style'] == 'mod' else 'implementation')
+        .replace('@MAPPINGS_BLOCK@', ('\tmappings loom.officialMojangMappings()\n' if cfg['mappings_line'] else '')),
+        encoding='utf-8')
     gp = (GRADLE_PROPERTIES
           .replace('@MC@', cfg['mc'])
           .replace('@LOADER@', cfg['loader'])
@@ -605,9 +666,14 @@ def generate(spec_path, out_dir):
                 'parent': 'minecraft:block/cube_all',
                 'textures': {'all': f'{ns}:block/{vid}'},
             }, indent=2), encoding='utf-8')
-            (assets / 'models/item' / f'{vid}.json').write_text(json.dumps({
-                'parent': f'{ns}:block/{vid}',
-            }, indent=2), encoding='utf-8')
+            if not cfg['items_folder']:
+                (assets / 'models/item' / f'{vid}.json').write_text(json.dumps({
+                    'parent': f'{ns}:block/{vid}',
+                }, indent=2), encoding='utf-8')
+            else:
+                (assets / 'items' / f'{vid}.json').write_text(json.dumps({
+                    'model': {'type': 'minecraft:model', 'model': f'{ns}:block/{vid}'},
+                }, indent=2), encoding='utf-8')
             (data / cfg['loot_dir'] / 'blocks' / f'{vid}.json').write_text(
                 json.dumps(make_loot(ns, it), indent=2), encoding='utf-8')
         else:
@@ -616,6 +682,10 @@ def generate(spec_path, out_dir):
                 'parent': parent,
                 'textures': {'layer0': f'{ns}:item/{vid}'},
             }, indent=2), encoding='utf-8')
+            if cfg['items_folder']:
+                (assets / 'items' / f'{vid}.json').write_text(json.dumps({
+                    'model': {'type': 'minecraft:model', 'model': f'{ns}:item/{vid}'},
+                }, indent=2), encoding='utf-8')
 
         # 配方
         recipe = make_recipe(ns, it, cfg)

@@ -1,81 +1,69 @@
-# ModCraft · 方块梦工厂
+# ModCraft · 方块梦工厂 v0.3
 
-> 玩家输入 Minecraft 模组想法 → AI（DeepSeek V4.1 Flash）设计规格 → GitHub Actions 自动构建 JAR → 一键下载。
+> 玩家输入 Minecraft 模组想法 → AI（DeepSeek）设计规格 → GitHub Actions 自动构建 JAR → 一键下载。
 
-**线上地址**：https://modcraft.top（等待域名 NS 生效后正式启用）
-**临时入口**：https://modcraft.modcraft-xiaohei.workers.dev
-**代码仓库**：https://github.com/xiaoheiHZ/modcraft
+**线上地址**：https://modcraft.top ｜ **代码仓库**：https://github.com/xiaoheiHZ/modcraft
+
+## v0.3 新增
+
+- **10 个游戏版本、4 个代码代系**：`1.20 / 1.20.1 / 1.20.2 / 1.20.4 / 1.21 / 1.21.1 / 1.21.4 / 26.1 / 26.2 / 26.3`
+- **26.x 新版本需要套餐或单次购买**解锁（前端锁定 + 后端强制校验）
+- **四档套餐 + 单次购买（¥5 加油包）+ 订单系统**（默认人工确认收款，可配收款码；Stripe 通道预留）
+- **管理后台**：`/admin.html`（统计 / 用户管理 / 订单确认 / 任务列表）
+- 邮箱注册（未配置邮件服务自动激活；配 `RESEND_API_KEY` + `MAIL_FROM` 后用验证码）
+
+## 套餐（worker/src/index.js 顶部 PLAN_DEFS 可改）
+
+| 套餐 | 价格 | 模型 | 思考 | 单次 tokens | 每天 | 物品 | 26.x |
+|---|---|---|---|---|---|---|---|
+| 标准版 | ¥0 | deepseek-flash | low | ≤2000 | 3 次 | ≤10 | 否 |
+| 进阶版 | ¥35/月 | deepseek-flash | high | ≤4000 | 10 次 | ≤16 | 否 |
+| 高级版 | ¥89/月 | deepseek-flash | 最高推理 | ≤6000 | 20 次 | ≤24 | 是 |
+| 专业版 | ¥159/月 | deepseek-v4-pro | high | ≤6500 | 25 次 | ≤32 | 是 |
+| 单次购买 | ¥5/次 | 用当前套餐配置 | - | - | +1 次 | - | 可解锁 26.x |
+
+额度用完时会弹出购买提示；后台「确认收款」后套餐/加油包立即生效。
+
+## 管理后台
+
+- 入口：`https://modcraft.top/admin.html`（本地：`http://localhost:8787/admin.html`）
+- 登录令牌：`ADMIN_TOKEN`（线上 `wrangler secret`；本地 `.dev.vars`）
+- 功能：数据总览（用户/任务/收入）、用户管理（设套餐、加单次额度、激活）、订单确认、任务列表
+
+## 支付配置（可选）
+
+在 `.dev.vars` / `wrangler secret` 里可配：
+- `PAY_INSTRUCTIONS`：支付说明文案（默认"请支付 ¥N，备注订单号"）
+- `PAY_QR_URL`：收款码图片地址（可选）
+- `PAY_CONTACT`：联系方式（可选）
+- 自动支付（预留）：`STRIPE_SECRET_KEY` + `PAYMENT_MODE=stripe`
+
+## 目录结构
 
 | 层 | 技术 | 位置 |
 |---|---|---|
-| 网页 | 原生 HTML/CSS/JS（零依赖、MC 贴图图标、深色/浅色双主题） | `public/` |
+| 网页 | 原生 HTML/CSS/JS（双主题、MC 贴图图标） | `public/` |
 | 后端 | Cloudflare Workers + D1 | `worker/` |
-| 构建器 | GitHub Actions + Python 代码生成器 | `.github/` `modgen/` |
+| 构建器 | GitHub Actions + Python 生成器（4 代系） | `.github/` `modgen/` |
 
-支持版本：**Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21**（物品 / 工具 / 食物 / 方块，自动配方与贴图）
-
----
-
-## 一、验证状态（2026-10-06 全部实测通过）
-
-- ✅ 前端：素材库 404 个素材、贴图四级 CDN 自动回退、双主题、注册/登录/任务面板
-- ✅ 后端：会话 Cookie、每日配额、贴图代理、未登录拦截（本地 wrangler 实测）
-- ✅ AI：`deepseek-flash` 低思考实时生成（2.8~4.4 秒 / 千级 tokens）
-- ✅ 构建：GitHub Actions 真机编译 —— **1.20.1 ✓（1m10s）**、**1.21.1 ✓（1m16s）**
-- ✅ 完整闭环：输入想法 → AI 生成 → Worker 派发 → 云端编译 → **下载到 `emerald_glow-1.0.0.jar`**
-- ✅ Cloudflare：Worker 已部署、D1 已建表、三个密钥已写入、`modcraft.top` 已绑定
-
-真实产物见 `demo-jars/`。
-
-## 二、待办（只差一步）
-
-到 **modcraft.top 的域名购买商后台**，把 DNS 服务器改成：
-
-```
-elle.ns.cloudflare.com
-louis.ns.cloudflare.com
-```
-
-改完后（几分钟~几小时）modcraft.top 即正式启用，全站可用。
-
-## 三、本地开发
+## 常用命令
 
 ```powershell
-# 前端预览（8787）
-python -m http.server 8787 --directory public
-
-# 后端（8788），密钥读 .dev.vars
-npm run dev
-
-# 重新部署到 Cloudflare
-npm run deploy
-
-# 线上试编译一个模组（GitHub Actions）
-# 直接在 GitHub 仓库 Actions 页面手动 Run workflow 即可
+npm run dev                # 本地后端（8788）
+npm run deploy             # 部署到 Cloudflare
+python -m http.server 8787 --directory public   # 本地前端
+npx wrangler d1 execute modcraft --file worker/migrate_0.3.sql --remote  # 数据库升级
+npx wrangler tail modcraft # 线上日志
 ```
 
-> 国内网络提示：本地 gradle 构建建议换镜像 `$env:GRADLE_DIST_URL='https://mirrors.cloud.tencent.com/gradle/gradle-9.7.1-bin.zip'` 后用生成器产出工程；正式编译走 Actions（海外网络）最稳。
+## 验证记录
 
-## 四、套餐与限流（盈利开关）
+- Actions 真机编译：1.20.1 ✓、1.21.1 ✓（v0.2）；1.20.2 / 1.21.4 / 26.1 ✓（v0.3）
+- 完整闭环：注册 → AI 生成 → 派发 → 编译 → 下载 jar ✓（demo-jars/ 有真实产物）
 
-`worker/src/index.js` 顶部 `PLANS`：
+## Roadmap
 
-| 套餐 | 模型 | 思考档 | 单次输出 | 每天 | 物品数 |
-|---|---|---|---|---|---|
-| free | deepseek-flash | low | 2000 tokens | 3 次 | 10 |
-| pro | deepseek-v4-pro | high | 6000 tokens | 30 次 | 24 |
-
-个人 GitHub 令牌（ModCraft-Worker，repo+workflow 权限）用于推送与 Worker 派发构建，保存在 `.dev.vars`（本地）与 `wrangler secret`（线上）。
-
-## 五、安全须知
-
-1. 密钥只放 `.dev.vars` 与 `wrangler secret`，永不进仓库/前端。
-2. 在聊天中出现过的密码/密钥建议尽快轮换。
-3. 非 Mojang / Microsoft 官方产品；AI 生成内容请自行检查。
-
-## 六、Roadmap
-
-- [ ] 1.21.4+ / Forge / NeoForge 支持
-- [ ] 护甲套、生物、附魔、生物蛋
+- [ ] 1.20.5/1.20.6 与 1.21.2~1.21.11 补全
+- [ ] 护甲套、生物、附魔
+- [ ] 自动支付接入（Stripe/微信/支付宝）
 - [ ] 作品广场、产物存 R2 直链
-- [ ] 支付接入 → Pro 上线

@@ -27,31 +27,57 @@
  */
 
 /* ================= 套餐定义（盈利开关都在这里） ================= */
-function planOf(env, name) {
-  const plans = {
-    free: {
-      label: '免费版',
-      model: (env && env.DEEPSEEK_MODEL_FREE) || 'deepseek-flash',
-      effort: 'low',            // 低思考档
-      maxTokens: 2000,          // 单次输出上限
-      dailyTasks: 3,            // 每天生成次数
-      maxItems: 10,             // 单个模组最多物品数
-    },
-    pro: {
-      label: '专业版',
-      model: (env && env.DEEPSEEK_MODEL_PRO) || 'deepseek-v4-pro',
-      effort: 'high',
-      maxTokens: 6000,
-      dailyTasks: 30,
-      maxItems: 24,
-    },
+const CREDIT_PRICE = 5;                 // 单次购买：¥5 = 1 次生成加油包
+const PLAN_DEFS = {
+  free: {
+    label: '标准版', price: 0, days: 0,
+    model: 'flash', effort: 'low', maxTokens: 2000, dailyTasks: 3, maxItems: 10,
+  },
+  plus35: {
+    label: '进阶版', price: 35, days: 30,
+    model: 'flash', effort: 'high', maxTokens: 4000, dailyTasks: 10, maxItems: 16,
+  },
+  pro89: {
+    label: '高级版', price: 89, days: 30,
+    model: 'flash', effort: 'high', maxTokens: 6000, dailyTasks: 20, maxItems: 24,
+  },
+  max159: {
+    label: '专业版', price: 159, days: 30,
+    model: 'pro', effort: 'high', maxTokens: 6500, dailyTasks: 25, maxItems: 32,
+  },
+};
+
+/* 套餐是否在有效期内（到期自动回落到标准版） */
+function effectivePlanName(user) {
+  if (!user) return 'free';
+  if (user.plan === 'free' || !PLAN_DEFS[user.plan]) return 'free';
+  if (user.plan_expires_at && user.plan_expires_at < Date.now()) return 'free';
+  return user.plan;
+}
+function planOf(env, userOrName) {
+  const name = typeof userOrName === 'string' ? userOrName : effectivePlanName(userOrName);
+  const key = PLAN_DEFS[name] ? name : 'free';
+  const def = PLAN_DEFS[key];
+  return {
+    key,
+    label: def.label,
+    price: def.price,
+    days: def.days,
+    paid: def.price > 0,
+    model: def.model === 'pro'
+      ? ((env && env.DEEPSEEK_MODEL_PRO) || 'deepseek-v4-pro')
+      : ((env && env.DEEPSEEK_MODEL_FREE) || 'deepseek-flash'),
+    effort: def.effort,
+    maxTokens: def.maxTokens,
+    dailyTasks: def.dailyTasks,
+    maxItems: def.maxItems,
   };
-  return plans[name] || plans.free;
 }
 
 const KINDS = ['item', 'sword', 'pickaxe', 'axe', 'shovel', 'hoe', 'food', 'block'];
-const MC_VERSIONS = ['1.20.1', '1.20.4', '1.21.1', '1.21'];
-const RESERVED_IDS = new Set(['minecraft', 'mod', 'test', 'blockdream', 'fabric', 'forge']);
+const MC_VERSIONS = ['1.20', '1.20.1', '1.20.2', '1.20.4', '1.21', '1.21.1', '1.21.4', '26.1', '26.2', '26.3'];
+const isPremiumVersion = v => String(v).startsWith('26.');
+const RESERVED_IDS = new Set(['minecraft', 'mod', 'test', 'modcraft', 'fabric', 'forge']);
 
 /* ================= 小工具 ================= */
 const json = (data, status = 200, extra = {}) =>
@@ -156,20 +182,29 @@ async function countTodayTasks(env, userId) {
   return row ? row.c : 0;
 }
 async function quotaInfo(env, user) {
-  const plan = planOf(env, user.plan);
+  const plan = planOf(env, user);
   const used = await countTodayTasks(env, user.id);
   return {
-    plan: user.plan,
+    plan: plan.key,
     plan_label: plan.label,
+    paid: plan.paid,
     daily: plan.dailyTasks,
     used_today: used,
     left: Math.max(0, plan.dailyTasks - used),
+    credits: user.extra_credits || 0,
+    credit_price: CREDIT_PRICE,
+    expires_at: user.plan_expires_at || null,
     max_tokens: plan.maxTokens,
     max_items: plan.maxItems,
   };
 }
 function publicUser(u) {
-  return { id: u.id, email: u.email, plan: u.plan, tokens_used: u.tokens_used, created_at: u.created_at };
+  return {
+    id: u.id, email: u.email, plan: effectivePlanName(u),
+    plan_expires_at: u.plan_expires_at || null,
+    credits: u.extra_credits || 0,
+    tokens_used: u.tokens_used, created_at: u.created_at,
+  };
 }
 
 /* ================= DeepSeek 调用 ================= */
@@ -407,7 +442,7 @@ async function handleApi(request, env, ctx) {
   /* ---- 健康检查 ---- */
   if (path === '/api/health') {
     return ok({
-      version: '0.2.0',
+      version: '0.3.0',
       mail: !!(env && env.RESEND_API_KEY),
       github: !!(env && env.GITHUB_TOKEN && env.GITHUB_REPO),
       deepseek: !!(env && env.DEEPSEEK_API_KEY),
@@ -466,6 +501,142 @@ async function handleApi(request, env, ctx) {
     return ok({}, 200, { 'set-cookie': clearCookie() });
   }
 
+  /* ================= 订单 / 支付 ================= */
+  /* ---- 创建订单（套餐订阅或单次加油包） ---- */
+  if (path === '/api/order/create' && method === 'POST') {
+    if (!user) return fail('请先登录', 401, 'unauthorized');
+    const body = await readJson();
+    const kind = body.kind === 'credit' ? 'credit' : 'plan';
+    let amount = CREDIT_PRICE;
+    let planKey = null;
+    if (kind === 'plan') {
+      planKey = String(body.plan || '');
+      if (!PLAN_DEFS[planKey] || !PLAN_DEFS[planKey].price) return fail('套餐不存在');
+      amount = PLAN_DEFS[planKey].price;
+    }
+    const id = 'o_' + randomHex(6);
+    await env.DB.prepare(
+      'INSERT INTO orders (id, user_id, kind, plan, amount, status, created_at) VALUES (?,?,?,?,?,?,?)'
+    ).bind(id, user.id, kind, planKey, amount, 'pending', Date.now()).run();
+    const pay = { mode: 'manual', amount, currency: 'CNY' };
+    if (env.STRIPE_SECRET_KEY && env.PAYMENT_MODE === 'stripe') {
+      pay.mode = 'stripe';
+      pay.note = 'Stripe 通道已预留（需配置商户信息后启用）';
+    } else {
+      pay.instructions = env.PAY_INSTRUCTIONS || `请支付 ¥${amount}，支付时备注订单号（或支付后联系管理员告知订单号）。`;
+      pay.contact = env.PAY_CONTACT || '';
+      pay.qr = env.PAY_QR_URL || '';
+    }
+    return ok({ order: { id, kind, plan: planKey, amount, status: 'pending', created_at: Date.now() }, pay });
+  }
+
+  /* ---- 我的订单 ---- */
+  if (path === '/api/orders' && method === 'GET') {
+    if (!user) return fail('请先登录', 401, 'unauthorized');
+    const rows = await env.DB.prepare(
+      'SELECT id, kind, plan, amount, status, created_at, paid_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20'
+    ).bind(user.id).all();
+    return ok({ orders: rows.results || [] });
+  }
+
+  /* ================= 管理后台（需要 ADMIN_TOKEN） ================= */
+  if (path.startsWith('/api/admin/')) {
+    const token = request.headers.get('x-admin-token') || '';
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return fail('管理员令牌无效', 401, 'admin_unauthorized');
+
+    if (path === '/api/admin/stats' && method === 'GET') {
+      const [u, t, tk, o, done, rev, toks] = await Promise.all([
+        env.DB.prepare('SELECT COUNT(*) AS c FROM users').first(),
+        env.DB.prepare('SELECT COUNT(*) AS c FROM tasks').first(),
+        env.DB.prepare('SELECT COUNT(*) AS c FROM tasks WHERE created_at >= ?').bind(dayStartMs()).first(),
+        env.DB.prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'").first(),
+        env.DB.prepare("SELECT COUNT(*) AS c FROM tasks WHERE status = 'done'").first(),
+        env.DB.prepare("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE status = 'paid'").first(),
+        env.DB.prepare('SELECT COALESCE(SUM(tokens_used),0) AS s FROM users').first(),
+      ]);
+      return ok({ stats: {
+        users: u.c, tasks_total: t.c, tasks_today: tk.c, tasks_done: done.c,
+        orders_pending: o.c, revenue: rev.s, tokens_total: toks.s,
+      } });
+    }
+
+    if (path === '/api/admin/users' && method === 'GET') {
+      const q = (url.searchParams.get('q') || '').trim();
+      const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+      const rows = q
+        ? await env.DB.prepare('SELECT id, email, plan, plan_expires_at, extra_credits, tokens_used, verified, created_at FROM users WHERE email LIKE ? ORDER BY created_at DESC LIMIT ?').bind('%' + q + '%', limit).all()
+        : await env.DB.prepare('SELECT id, email, plan, plan_expires_at, extra_credits, tokens_used, verified, created_at FROM users ORDER BY created_at DESC LIMIT ?').bind(limit).all();
+      return ok({ users: (rows.results || []).map(r => ({ ...r, plan: effectivePlanName(r) })) });
+    }
+
+    if (path === '/api/admin/user' && method === 'POST') {
+      const body = await readJson();
+      const target = await getUserById(env, String(body.user_id || ''));
+      if (!target) return fail('用户不存在', 404);
+      if (body.action === 'set_plan') {
+        const pk = String(body.plan || 'free');
+        if (pk !== 'free' && !PLAN_DEFS[pk]) return fail('套餐不存在');
+        const days = Math.max(1, Math.min(Number(body.days || PLAN_DEFS[pk].days || 30), 3650));
+        const expires = pk === 'free' ? null : Date.now() + days * 86400000;
+        await env.DB.prepare('UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?').bind(pk, expires, target.id).run();
+        return ok({ message: `已设置 ${PLAN_DEFS[pk].label}${expires ? '（' + days + ' 天）' : ''}` });
+      }
+      if (body.action === 'add_credits') {
+        const n = Math.max(1, Math.min(Number(body.n || 1), 1000));
+        await env.DB.prepare('UPDATE users SET extra_credits = extra_credits + ? WHERE id = ?').bind(n, target.id).run();
+        return ok({ message: `已增加 ${n} 个单次额度` });
+      }
+      if (body.action === 'verify') {
+        await env.DB.prepare('UPDATE users SET verified = 1 WHERE id = ?').bind(target.id).run();
+        return ok({ message: '已激活账号' });
+      }
+      return fail('未知操作');
+    }
+
+    if (path === '/api/admin/tasks' && method === 'GET') {
+      const status = url.searchParams.get('status') || '';
+      const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+      const rows = status
+        ? await env.DB.prepare('SELECT t.id, t.user_id, u.email, t.idea, t.mc_version, t.status, t.tokens_used, t.created_at FROM tasks t LEFT JOIN users u ON u.id = t.user_id WHERE t.status = ? ORDER BY t.created_at DESC LIMIT ?').bind(status, limit).all()
+        : await env.DB.prepare('SELECT t.id, t.user_id, u.email, t.idea, t.mc_version, t.status, t.tokens_used, t.created_at FROM tasks t LEFT JOIN users u ON u.id = t.user_id ORDER BY t.created_at DESC LIMIT ?').bind(limit).all();
+      return ok({ tasks: rows.results || [] });
+    }
+
+    if (path === '/api/admin/orders' && method === 'GET') {
+      const status = url.searchParams.get('status') || '';
+      const rows = status
+        ? await env.DB.prepare('SELECT o.*, u.email FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.status = ? ORDER BY o.created_at DESC LIMIT 100').bind(status).all()
+        : await env.DB.prepare('SELECT o.*, u.email FROM orders o LEFT JOIN users u ON u.id = o.user_id ORDER BY o.created_at DESC LIMIT 100').all();
+      return ok({ orders: rows.results || [] });
+    }
+
+    if (path === '/api/admin/order' && method === 'POST') {
+      const body = await readJson();
+      const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(String(body.order_id || '')).first();
+      if (!order) return fail('订单不存在', 404);
+      const status = body.status === 'paid' ? 'paid' : (body.status === 'cancelled' ? 'cancelled' : null);
+      if (!status) return fail('非法状态');
+      if (order.status === 'paid') return ok({ message: '该订单已处理' });
+      if (status === 'paid') {
+        const target = await getUserById(env, order.user_id);
+        if (!target) return fail('用户不存在', 404);
+        if (order.kind === 'plan') {
+          const days = (PLAN_DEFS[order.plan] || {}).days || 30;
+          const base = (target.plan === order.plan && target.plan_expires_at && target.plan_expires_at > Date.now()) ? target.plan_expires_at : Date.now();
+          await env.DB.prepare('UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?').bind(order.plan, base + days * 86400000, target.id).run();
+        } else {
+          await env.DB.prepare('UPDATE users SET extra_credits = extra_credits + 1 WHERE id = ?').bind(target.id).run();
+        }
+        await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?").bind(Date.now(), order.id).run();
+        return ok({ message: '已确认收款并发放' });
+      }
+      await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(status, order.id).run();
+      return ok({ message: status === 'cancelled' ? '订单已取消' : '订单已更新' });
+    }
+
+    return fail('后台接口不存在', 404);
+  }
+
   /* ---- 邮箱验证 ---- */
   if (path === '/api/verify' && method === 'POST') {
     const { email, code } = await readJson();
@@ -497,10 +668,21 @@ async function handleApi(request, env, ctx) {
     const loader = 'fabric';
     const assets = Array.isArray(body.assets) ? body.assets.filter(a => /^[a-z0-9_]{2,40}$/.test(String(a))).slice(0, 40) : [];
 
-    const plan = planOf(env, user.plan);
+    const plan = planOf(env, user);
     const usedToday = await countTodayTasks(env, user.id);
-    if (usedToday >= plan.dailyTasks) {
-      return fail(`今日生成次数已用完（${plan.label}每天 ${plan.dailyTasks} 次），明天再来吧`, 429, 'quota_exceeded');
+
+    /* 26.x 新版本：需要付费套餐，或消耗 1 个加油包（单次购买） */
+    const premiumVer = isPremiumVersion(mcVersion);
+    const credits = user.extra_credits || 0;
+    const overDaily = usedToday >= plan.dailyTasks;
+    let useCredit = false;
+    if (overDaily) useCredit = true;                       // 超出每日额度 → 消耗加油包
+    if (premiumVer && !plan.paid && !useCredit) {
+      if (credits > 0) useCredit = true;                   // 免费用户用加油包解锁 26.x
+      else return fail('26.x 新版本需要套餐用户或单次购买后使用', 403, 'premium_version');
+    }
+    if (useCredit && credits <= 0) {
+      return fail(`今日生成次数已用完（${plan.label}每天 ${plan.dailyTasks} 次）。可单次购买 ¥${CREDIT_PRICE} 继续生成`, 429, 'quota_exceeded');
     }
     if (!env.DEEPSEEK_API_KEY) return fail('AI 服务未配置（缺少 DEEPSEEK_API_KEY）', 500);
 
@@ -529,6 +711,9 @@ async function handleApi(request, env, ctx) {
     ).bind(taskId, user.id, idea, mcVersion, loader, JSON.stringify(parsed), 'drafted', usage.total_tokens || 0, now, now).run();
     if (usage.total_tokens) {
       await env.DB.prepare('UPDATE users SET tokens_used = tokens_used + ? WHERE id = ?').bind(usage.total_tokens, user.id).run();
+    }
+    if (useCredit) {
+      await env.DB.prepare('UPDATE users SET extra_credits = extra_credits - 1 WHERE id = ?').bind(user.id).run();
     }
     const fresh = await getUserById(env, user.id);
     return ok({

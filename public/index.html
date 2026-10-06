@@ -42,7 +42,7 @@
         <button class="btn primary big" data-goto="create"><img class="mc-icon" data-mc="crafting_table" alt="">开始造模组</button>
         <button class="btn ghost big" data-goto="assets"><img class="mc-icon" data-mc="chest" alt="">先逛逛素材库</button>
       </div>
-      <div class="hero-note">不会写代码也能拥有自己的模组 · Fabric 1.20.1 / 1.20.4 / 1.21.1 / 1.21</div>
+      <div class="hero-note">不会写代码也能拥有自己的模组 · Fabric 1.20 ~ 1.21.4 免费 · 26.x 新版本（套餐/单次购买）</div>
     </div>
 
     <div class="steps">
@@ -64,38 +64,61 @@
     </div>
 
     <div class="pricing">
-      <h2 class="section-title">套餐</h2>
+      <h2 class="section-title">套餐与定价</h2>
       <div class="price-grid">
         <div class="price-card">
-          <div class="price-head"><img class="mc-icon" data-mc="emerald" alt="">免费版 <span class="badge">默认</span></div>
+          <div class="price-head"><img class="mc-icon" data-mc="emerald" alt="">标准版</div>
           <div class="price-amount">¥0</div>
           <ul>
-            <li>DeepSeek V4.1 Flash · 低思考档</li>
+            <li>DeepSeek V4.1 Flash · 低思考</li>
             <li>每天 3 次生成</li>
-            <li>单次输出 ≤ 2000 tokens</li>
+            <li>单次 ≤ 2000 tokens</li>
             <li>单模组 ≤ 10 个物品</li>
-            <li>云端队列构建</li>
           </ul>
+        </div>
+        <div class="price-card">
+          <div class="price-head"><img class="mc-icon" data-mc="iron_ingot" alt="">进阶版</div>
+          <div class="price-amount">¥35 <span class="per">/月</span></div>
+          <ul>
+            <li>DeepSeek V4.1 Flash · 高思考</li>
+            <li>每天 10 次生成</li>
+            <li>单次 ≤ 4000 tokens</li>
+            <li>单模组 ≤ 16 个物品</li>
+          </ul>
+          <button class="btn full" data-buy="plus35">立即购买</button>
         </div>
         <div class="price-card pro">
-          <div class="price-head"><img class="mc-icon" data-mc="nether_star" alt="">专业版 <span class="badge gold">内测中</span></div>
-          <div class="price-amount">即将定价</div>
+          <div class="price-head"><img class="mc-icon" data-mc="gold_ingot" alt="">高级版</div>
+          <div class="price-amount">¥89 <span class="per">/月</span></div>
           <ul>
-            <li>deepseek-v4-pro · 深度思考</li>
-            <li>每天 30 次生成</li>
-            <li>单次输出 ≤ 6000 tokens</li>
+            <li>DeepSeek V4.1 Flash · 最高推理</li>
+            <li>每天 20 次生成</li>
+            <li>单次 ≤ 6000 tokens</li>
             <li>单模组 ≤ 24 个物品</li>
-            <li>优先构建 + 自定义贴图</li>
+            <li>解锁 26.x 新版本</li>
           </ul>
-          <button class="btn gold" id="btnPro">申请内测</button>
+          <button class="btn gold full" data-buy="pro89">立即购买</button>
+        </div>
+        <div class="price-card pro">
+          <div class="price-head"><img class="mc-icon" data-mc="netherite_ingot" alt="">专业版</div>
+          <div class="price-amount">¥159 <span class="per">/月</span></div>
+          <ul>
+            <li>DeepSeek V4 Pro · 深度思考</li>
+            <li>每天 25 次生成</li>
+            <li>单次 ≤ 6500 tokens</li>
+            <li>单模组 ≤ 32 个物品</li>
+            <li>解锁 26.x 新版本</li>
+          </ul>
+          <button class="btn gold full" data-buy="max159">立即购买</button>
         </div>
       </div>
+      <p class="hint" style="margin-top:10px">额度用完时也可 <b>单次购买 ¥5</b> 继续生成一次。支付采用人工确认（下单后联系管理员），后续可接入自动支付通道。</p>
     </div>
 
     <div class="faq">
       <h2 class="section-title">常见问题</h2>
       <details><summary>需要会写代码吗？</summary><p>不需要。你只管提想法，规格设计、代码生成、编译全自动完成。</p></details>
-      <details><summary>生成的模组怎么用？</summary><p>安装 Fabric Loader + Fabric API，把下载的 jar 放进 <code>.minecraft/mods</code> 即可。1.20.1 最稳定，1.21.1 推荐，1.20.4 / 1.21 同步支持。</p></details>
+      <details><summary>生成的模组怎么用？</summary><p>安装 Fabric Loader + Fabric API，把下载的 jar 放进 <code>.minecraft/mods</code> 即可。支持 1.20 / 1.20.1 / 1.20.2 / 1.20.4 / 1.21 / 1.21.1 / 1.21.4，以及 26.1 / 26.2 / 26.3（26.x 需套餐或单次购买）。</p></details>
       <details><summary>能做多复杂？</summary><p>当前支持：物品、剑 / 镐 / 斧 / 锹 / 锄（六种材质档）、食物、方块，自动带配方和贴图。护甲、生物、附魔正在路上。</p></details>
       <details><summary>数据安全吗？</summary><p>仅用邮箱注册；AI Key 保存在服务端，不暴露给浏览器；构建在一次性云端容器进行。</p></details>
     </div>
@@ -107,9 +130,13 @@
       <input id="assetSearch" class="input" type="search" placeholder="搜索物品 / 方块：中文、English 或 id 都行…">
       <select id="assetVersion" class="input select">
         <option value="1.21.1">贴图版本 1.21.1</option>
+        <option value="1.21.4">贴图版本 1.21.4</option>
         <option value="1.21">贴图版本 1.21</option>
         <option value="1.20.4">贴图版本 1.20.4</option>
+        <option value="1.20.2">贴图版本 1.20.2</option>
         <option value="1.20.1">贴图版本 1.20.1</option>
+        <option value="1.20">贴图版本 1.20</option>
+        <option value="26.1">贴图版本 26.1</option>
       </select>
     </div>
     <div id="assetGroups" class="chips"></div>
@@ -128,9 +155,15 @@
           <label class="field">目标版本
             <select id="mcVersion" class="input select">
               <option value="1.20.1">1.20.1（稳定）</option>
+              <option value="1.20.2">1.20.2</option>
               <option value="1.20.4">1.20.4</option>
+              <option value="1.20">1.20</option>
               <option value="1.21.1">1.21.1（推荐）</option>
               <option value="1.21">1.21</option>
+              <option value="1.21.4">1.21.4</option>
+              <option value="26.1">26.1（套餐/单次购买）</option>
+              <option value="26.2">26.2（套餐/单次购买）</option>
+              <option value="26.3">26.3（套餐/单次购买）</option>
             </select>
           </label>
           <label class="field">加载器
@@ -191,7 +224,7 @@
       <div class="profile-head">
         <div>
           <div class="profile-email" id="profileEmail">-</div>
-          <div class="profile-plan">套餐：<b id="profilePlan">免费版</b> · 今日剩余 <b id="profileQuota">-</b> 次</div>
+          <div class="profile-plan">套餐：<b id="profilePlan">标准版</b> · 今日剩余 <b id="profileQuota">-</b> 次 · 单次额度 <b id="profileCredits">0</b> 个</div>
         </div>
         <button id="btnLogout" class="btn ghost">退出登录</button>
       </div>
@@ -201,6 +234,8 @@
       </div>
       <h3>我的模组任务 <button id="btnRefreshTasks" class="btn ghost small">刷新</button></h3>
       <div id="taskList" class="task-list"></div>
+      <h3 style="margin-top:18px">我的订单</h3>
+      <div id="orderList" class="order-list"></div>
     </div>
   </section>
 
@@ -210,6 +245,14 @@
   <span><img class="mc-icon" data-mc="shulker_box" alt="">素材篮：<b id="basketCount">0</b> 个</span>
   <button id="btnBasketClear" class="btn ghost small">清空</button>
   <button id="btnBasketGo" class="btn primary small">去造模组</button>
+</div>
+
+<div id="buyModal" class="modal hidden">
+  <div class="modal-card">
+    <button class="modal-close" id="buyClose">×</button>
+    <h3 id="buyTitle">购买</h3>
+    <div id="buyBody" class="modal-body"></div>
+  </div>
 </div>
 
 <footer class="footer">

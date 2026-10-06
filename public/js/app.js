@@ -26,6 +26,7 @@ const state = {
   currentTask: null,
   pollTimer: null,
   quota: null,
+  orders: [],
 };
 try { state.basket = new Set(JSON.parse(localStorage.getItem('bd_basket') || '[]')); } catch {}
 
@@ -124,7 +125,12 @@ async function jreq(path, method = 'GET', body) {
   });
   let data;
   try { data = await res.json(); } catch { throw new Error('服务器响应格式错误'); }
-  if (!res.ok || data.ok === false) throw new Error(data.error || `请求失败 (HTTP ${res.status})`);
+  if (!res.ok || data.ok === false) {
+    const e = new Error(data.error || `请求失败 (HTTP ${res.status})`);
+    e.code = data.code;
+    e.data = data;
+    throw e;
+  }
   return data;
 }
 const jget = p => jreq(p);
@@ -311,7 +317,10 @@ async function doGenerate() {
       refreshQuota();
     }
   } catch (e) {
-    setTimeline('err', e.message);
+    if (e.code === 'quota_exceeded') { setTimeline('queued'); openCreditModal(e.message); }
+    else if (e.code === 'premium_version') { setTimeline('queued'); openPremiumModal(e.message); }
+    else if (e.code === 'unauthorized') { setTimeline('queued'); toast('请先登录'); goto('account'); }
+    else setTimeline('err', e.message);
   }
   busy(btn, false);
 }
@@ -441,10 +450,72 @@ function showResult(task) {
 
 function renderQuotaHint() {
   const el = $('#quotaHint');
-  if (state.demo) { el.textContent = '演示模式：不限次数；部署后端后按套餐限流（免费版 3 次/天）。'; return; }
-  if (!state.user) { el.textContent = '登录后可生成（免费版每天 3 次）。'; return; }
+  if (state.demo) { el.textContent = '演示模式：不限次数；部署后端后按套餐限流（标准版每天 3 次）。'; return; }
+  if (!state.user) { el.textContent = '登录后可生成（标准版每天 3 次）。'; return; }
   const q = state.quota || {};
-  el.textContent = `今日剩余 ${q.left ?? '-'} 次 · 单次输出上限 ${q.max_tokens ?? '-'} tokens · 套餐：${q.plan_label || state.user.plan}`;
+  const extra = (q.credits > 0) ? ` · 单次额度 ${q.credits} 个` : '';
+  el.textContent = `今日剩余 ${q.left ?? '-'} 次${extra} · 单次输出上限 ${q.max_tokens ?? '-'} tokens · 套餐：${q.plan_label || state.user.plan}`;
+}
+
+/* ================= 购买 / 支付 ================= */
+function openBuyModal(title, bodyHtml) {
+  $('#buyTitle').textContent = title;
+  $('#buyBody').innerHTML = bodyHtml;
+  $('#buyModal').classList.remove('hidden');
+  fillStaticIcons($('#buyModal'));
+}
+function closeBuyModal() { $('#buyModal').classList.add('hidden'); }
+
+async function startBuy(kind, planKey) {
+  if (state.demo) { toast('演示模式：下单需要连接后端'); return; }
+  if (!state.user) { toast('请先登录后再购买'); goto('account'); return; }
+  try {
+    const d = await jpost('/api/order/create', { kind, plan: planKey });
+    const o = d.order;
+    const pay = d.pay || {};
+    const title = o.kind === 'credit' ? `单次购买 ¥${o.amount}` : `购买套餐 ¥${o.amount}`;
+    const rows = [];
+    rows.push(`<div>订单号：<span class="order-id">${esc(o.id)}</span>（支付时请备注订单号）</div>`);
+    rows.push(`<div>金额：<b>¥${o.amount}</b> · 状态：<b>待支付</b></div>`);
+    if (pay.qr) rows.push(`<div style="margin-top:8px"><img src="${esc(pay.qr)}" alt="收款码" style="max-width:220px;border:2px solid var(--line);border-radius:4px"></div>`);
+    if (pay.instructions) rows.push(`<div class="hint" style="margin-top:8px">${esc(pay.instructions)}</div>`);
+    if (pay.contact) rows.push(`<div class="hint">联系管理员：${esc(pay.contact)}</div>`);
+    rows.push(`<div class="modal-actions"><button class="btn small" id="copyOrder">复制订单号</button><button class="btn primary small" id="paidDone">我已支付</button></div>`);
+    rows.push(`<div class="hint">管理员确认收款后立即生效（可在「我的」页面查看订单状态）。</div>`);
+    openBuyModal(title, rows.join(''));
+    $('#copyOrder').onclick = () => { try { navigator.clipboard.writeText(o.id); toast('订单号已复制'); } catch { toast(o.id); } };
+    $('#paidDone').onclick = () => { closeBuyModal(); toast('已记录，请等待管理员确认收款'); };
+  } catch (e) { toast('下单失败：' + e.message); }
+}
+
+function openCreditModal(msg) {
+  const html = `<p>${esc(msg || '今日额度已用完')}</p>
+  <p><b>¥5 单次购买</b>：立即增加 1 次生成额度（随时可用，用完为止）。</p>
+  <div class="modal-actions"><button class="btn primary" id="buyCreditBtn">单次购买 ¥5</button><button class="btn ghost" id="closeCreditBtn">再看看</button></div>`;
+  openBuyModal('额度用完啦', html);
+  $('#buyCreditBtn').onclick = () => { closeBuyModal(); startBuy('credit'); };
+  $('#closeCreditBtn').onclick = closeBuyModal;
+}
+
+function openPremiumModal(msg) {
+  const html = `<p>${esc(msg || '26.x 新版本需要套餐或单次购买')}</p>
+  <ul>
+    <li>进阶版 ¥35/月 · 高思考 · 10 次/天</li>
+    <li>高级版 ¥89/月 · 最高推理 · 20 次/天 · 解锁 26.x</li>
+    <li>专业版 ¥159/月 · DeepSeek V4 Pro · 25 次/天 · 解锁 26.x</li>
+    <li><b>或者单次购买 ¥5</b>：用加油包生成一次 26.x 模组</li>
+  </ul>
+  <div class="modal-actions">
+    <button class="btn small" id="pmBuy35">进阶版 ¥35</button>
+    <button class="btn gold small" id="pmBuy89">高级版 ¥89</button>
+    <button class="btn gold small" id="pmBuy159">专业版 ¥159</button>
+    <button class="btn primary small" id="pmCredit">单次 ¥5</button>
+  </div>`;
+  openBuyModal('解锁 26.x 新版本', html);
+  $('#pmBuy35').onclick = () => { closeBuyModal(); startBuy('plan', 'plus35'); };
+  $('#pmBuy89').onclick = () => { closeBuyModal(); startBuy('plan', 'pro89'); };
+  $('#pmBuy159').onclick = () => { closeBuyModal(); startBuy('plan', 'max159'); };
+  $('#pmCredit').onclick = () => { closeBuyModal(); startBuy('credit'); };
 }
 
 /* ================= 账号 ================= */
@@ -459,19 +530,38 @@ function renderUserChip() {
   }
 }
 
+const PLAN_LABELS = { free: '标准版', plus35: '进阶版', pro89: '高级版', max159: '专业版' };
 function renderAccount() {
   const logged = !!state.user;
   $('#authPanel').classList.toggle('hidden', logged);
   $('#profilePanel').classList.toggle('hidden', !logged);
   if (!logged) return;
   $('#profileEmail').textContent = state.user.email;
-  const planLabel = state.user.plan === 'pro' ? '专业版' : '免费版';
-  $('#profilePlan').textContent = planLabel;
+  const planLabel = PLAN_LABELS[state.user.plan] || '标准版';
+  const exp = state.user.plan_expires_at ? `（${new Date(state.user.plan_expires_at).toLocaleDateString('zh-CN')} 到期）` : '';
+  $('#profilePlan').textContent = planLabel + exp;
   $('#profileQuota').textContent = state.quota ? (state.quota.left ?? '-') : '-';
+  const credits = state.user.credits || 0;
+  const creditsEl = $('#profileCredits');
+  if (creditsEl) creditsEl.textContent = credits;
   const used = state.user.tokens_used || 0;
-  $('#tokenBarText').textContent = `累计消耗 ${used.toLocaleString()} tokens`;
+  $('#tokenBarText').textContent = `累计消耗 ${used.toLocaleString()} tokens · 单次额度加油包 ${credits} 个`;
   $('#tokenBarFill').style.width = Math.min(100, used / 5000) + '%';
   renderTasks();
+  if (!state.demo) { loadOrders().then(renderOrders); renderOrders(); }
+}
+
+async function loadOrders() {
+  try { const d = await jget('/api/orders'); state.orders = d.orders || []; } catch {}
+}
+
+function renderOrders() {
+  const box = $('#orderList');
+  if (!box) return;
+  const list = state.orders || [];
+  if (!list.length) { box.innerHTML = '<div class="hint">还没有订单。</div>'; return; }
+  const st = { pending: '待支付', paid: '已支付', cancelled: '已取消' };
+  box.innerHTML = list.map(o => `<div class="order-row"><span class="order-id">${esc(o.id)}</span> ${esc(o.kind === 'credit' ? '单次额度' : (PLAN_LABELS[o.plan] || o.plan || '-'))} ¥${o.amount} <b>${st[o.status] || o.status}</b> <span class="hint">${new Date((o.created_at || 0)).toLocaleString('zh-CN')}</span></div>`).join('');
 }
 
 function statusLabel(s) {
@@ -615,7 +705,9 @@ function bind() {
   $('#registerForm').onsubmit = e => { e.preventDefault(); doAuth('register'); };
   $('#btnLogout').onclick = doLogout;
   $('#btnRefreshTasks').onclick = () => loadTasks().then(renderTasks);
-  $('#btnPro').onclick = () => toast('专业版内测通道即将开放（支付接入后上线）');
+  $$('[data-buy]').forEach(b => b.onclick = () => startBuy('plan', b.dataset.buy));
+  $('#buyClose').onclick = closeBuyModal;
+  $('#buyModal').addEventListener('click', e => { if (e.target === $('#buyModal')) closeBuyModal(); });
   $('#themeToggle').onclick = () => applyTheme(document.documentElement.classList.contains('light') ? 'dark' : 'light');
 }
 
