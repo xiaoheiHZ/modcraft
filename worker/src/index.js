@@ -501,6 +501,10 @@ async function handleApi(request, env, ctx) {
     return ok({}, 200, { 'set-cookie': clearCookie() });
   }
 
+  /* ---- 读取会话（后面所有接口共用；必须在引用 user 之前声明） ---- */
+  const uid = await readSession(env, request);
+  const user = uid ? await getUserById(env, uid) : null;
+
   /* ================= 订单 / 支付 ================= */
   /* ---- 创建订单（套餐订阅或单次加油包） ---- */
   if (path === '/api/order/create' && method === 'POST') {
@@ -649,8 +653,6 @@ async function handleApi(request, env, ctx) {
   }
 
   /* ======== 以下都需要登录 ======== */
-  const uid = await readSession(env, request);
-  const user = uid ? await getUserById(env, uid) : null;
 
   if (path === '/api/me') {
     if (!user) return fail('未登录', 401, 'unauthorized');
