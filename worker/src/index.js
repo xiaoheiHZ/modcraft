@@ -100,6 +100,7 @@ const isPremiumVersion = v => String(v).startsWith('26.');
 const RESERVED_IDS = new Set(['minecraft', 'mod', 'test', 'modcraft', 'fabric', 'forge']);
 
 import { createHash } from 'node:crypto';
+import { getJarBytes, zipList, zipExtract, mimeOf } from './zip.js';
 
 /* ================= 小工具 ================= */
 const json = (data, status = 200, extra = {}) =>
@@ -507,7 +508,7 @@ async function handleApi(request, env, ctx) {
   /* ---- 健康检查 ---- */
   if (path === '/api/health') {
     return ok({
-      version: '0.5.0',
+      version: '0.6.0',
       mail: !!(env && env.RESEND_API_KEY),
       github: !!(env && env.GITHUB_TOKEN && env.GITHUB_REPO),
       deepseek: !!(env && env.DEEPSEEK_API_KEY),
@@ -876,6 +877,40 @@ async function handleApi(request, env, ctx) {
   }
 
   /* ---- 任务状态 ---- */
+  /* ---- 产物内容浏览：文件列表 ---- */
+  if (method === 'GET' && /^\/api\/task\/[^/]+\/tree$/.test(path)) {
+    if (!user) return fail('请先登录', 401, 'unauthorized');
+    const id = path.split('/')[3];
+    const task = await env.DB.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').bind(id, user.id).first();
+    if (!task) return fail('任务不存在', 404);
+    if (task.status !== 'done' || !task.artifact_id) return fail('构建尚未完成', 409, 'not_done');
+    try {
+      const jar = await getJarBytes(env, task);
+      const files = zipList(jar).filter(e => !e.name.endsWith('/')).map(e => ({ path: e.name, size: e.uncompSize }));
+      return ok({ jar: task.jar_name || 'mod.jar', files });
+    } catch (e) {
+      return fail('读取产物失败：' + e.message, 502);
+    }
+  }
+  /* ---- 产物内容浏览：单个文件 ---- */
+  if (method === 'GET' && /^\/api\/task\/[^/]+\/file$/.test(path)) {
+    if (!user) return fail('请先登录', 401, 'unauthorized');
+    const id = path.split('/')[3];
+    const task = await env.DB.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').bind(id, user.id).first();
+    if (!task) return fail('任务不存在', 404);
+    if (task.status !== 'done' || !task.artifact_id) return fail('构建尚未完成', 409, 'not_done');
+    const p = url.searchParams.get('p') || '';
+    if (!p || p.includes('..') || p.startsWith('/')) return fail('非法路径', 400);
+    try {
+      const jar = await getJarBytes(env, task);
+      const entry = zipList(jar).find(e => e.name === p);
+      if (!entry) return fail('文件不存在', 404);
+      const data = await zipExtract(jar, entry);
+      return new Response(data, { headers: { 'content-type': mimeOf(p), 'cache-control': 'private, max-age=3600' } });
+    } catch (e) {
+      return fail('读取失败：' + e.message, 502);
+    }
+  }
   if (path.startsWith('/api/task/') && method === 'GET') {
     if (!user) return fail('请先登录', 401, 'unauthorized');
     const id = decodeURIComponent(path.slice('/api/task/'.length));

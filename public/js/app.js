@@ -445,7 +445,8 @@ function showResult(task) {
   }
   const name = task.jar_name || 'mod.zip';
   box.innerHTML = `<img class="mc-icon" data-mc="emerald" alt=""><b>构建完成！</b> 下载后解压，把里面的 <code>.jar</code> 放进 <code>.minecraft/mods</code> 文件夹即可（需要 Fabric Loader + Fabric API）。<br>
-  <a class="btn primary dl" href="${API_BASE}/api/download/${encodeURIComponent(task.id)}"><img class="mc-icon" data-mc="hopper" alt="">下载 ${esc(name)}</a>`;
+  <a class="btn primary dl" href="${API_BASE}/api/download/${encodeURIComponent(task.id)}"><img class="mc-icon" data-mc="hopper" alt="">下载 ${esc(name)}</a>
+  <button class="btn ghost dl" data-jarview="${esc(task.id)}"><img class="mc-icon" data-mc="shulker_box" alt="">查看内容</button>`;
   fillStaticIcons(box);
 }
 
@@ -459,13 +460,19 @@ function renderQuotaHint() {
 }
 
 /* ================= 购买 / 支付 ================= */
-function openBuyModal(title, bodyHtml) {
+function openBuyModal(title, bodyHtml, wide) {
   $('#buyTitle').textContent = title;
   $('#buyBody').innerHTML = bodyHtml;
+  const card = $('#buyModal').querySelector('.modal-card');
+  if (card) card.classList.toggle('wide', !!wide);
   $('#buyModal').classList.remove('hidden');
   fillStaticIcons($('#buyModal'));
 }
-function closeBuyModal() { $('#buyModal').classList.add('hidden'); }
+function closeBuyModal() {
+  $('#buyModal').classList.add('hidden');
+  const card = $('#buyModal').querySelector('.modal-card');
+  if (card) card.classList.remove('wide');
+}
 
 async function startBuy(kind, planKey, payType) {
   if (state.demo) { toast('演示模式：下单需要连接后端'); return; }
@@ -558,6 +565,94 @@ function openPremiumModal(msg) {
   $('#pmCredit').onclick = () => { closeBuyModal(); startBuy('credit'); };
 }
 
+/* ================= 构建产物内容查看器 ================= */
+let jarCtx = { taskId: null, files: [] };
+
+async function openJarViewer(taskId) {
+  jarCtx = { taskId, files: [] };
+  openBuyModal('构建产物内容', '<div class="hint">正在读取 jar…</div>', true);
+  try {
+    const d = await jget('/api/task/' + encodeURIComponent(taskId) + '/tree');
+    jarCtx.files = d.files || [];
+    renderJarViewer(d.jar, jarCtx.files);
+  } catch (e) {
+    $('#buyBody').innerHTML = `<div class="hint bad">读取失败：${esc(e.message)}</div>`;
+  }
+}
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+
+function renderJarViewer(jarName, files) {
+  const groups = {};
+  for (const f of files) {
+    const i = f.path.lastIndexOf('/');
+    const dir = i < 0 ? '(根目录)' : f.path.slice(0, i);
+    (groups[dir] = groups[dir] || []).push(f);
+  }
+  const order = Object.keys(groups).sort((a, b) => {
+    if (a === '(根目录)') return -1;
+    if (b === '(根目录)') return 1;
+    if (a.startsWith('assets/') && !b.startsWith('assets/')) return -1;
+    if (b.startsWith('assets/') && !a.startsWith('assets/')) return 1;
+    return a.localeCompare(b);
+  });
+  const treeHtml = order.map(dir => {
+    const rows = groups[dir].sort((x, y) => x.path.localeCompare(y.path)).map(f => {
+      const name = f.path.slice(f.path.lastIndexOf('/') + 1);
+      return `<button class="file" data-jarpath="${esc(f.path)}">${esc(name)}<span class="jar-size">${fmtSize(f.size)}</span></button>`;
+    }).join('');
+    return `<div class="dir">${esc(dir)}/</div>${rows}`;
+  }).join('');
+  $('#buyBody').innerHTML = `
+    <div class="hint"><b>${esc(jarName)}</b> · 共 ${files.length} 个文件 —— 左边点文件，右边预览（贴图、模型、配方、语言文件都能看）</div>
+    <div class="jar-grid">
+      <div class="jar-tree" id="jarTree">${treeHtml}</div>
+      <div class="jar-preview" id="jarPreview"><div class="hint">← 点左边的文件预览</div></div>
+    </div>`;
+  const tree = $('#jarTree');
+  tree.querySelectorAll('[data-jarpath]').forEach(b => {
+    b.onclick = () => {
+      tree.querySelectorAll('.file.active').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      previewJarFile(jarCtx.taskId, b.dataset.jarpath);
+    };
+  });
+  const firstImg = files.find(f => /\.png$/i.test(f.path));
+  if (firstImg) {
+    const btn = [...tree.querySelectorAll('[data-jarpath]')].find(x => x.dataset.jarpath === firstImg.path);
+    if (btn) btn.click();
+  }
+}
+
+async function previewJarFile(taskId, path) {
+  const box = $('#jarPreview');
+  box.innerHTML = '<div class="hint">加载中…</div>';
+  const url = API_BASE + '/api/task/' + encodeURIComponent(taskId) + '/file?p=' + encodeURIComponent(path);
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const ext = path.split('.').pop().toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) {
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      box.innerHTML = `<div class="hint">${esc(path)}</div><div><img src="${objUrl}" alt=""></div>`;
+      return;
+    }
+    if (['json', 'txt', 'toml', 'mcmeta', 'lang', 'properties', 'cfg', 'md', 'java', 'json5'].includes(ext)) {
+      const text = await res.text();
+      box.innerHTML = `<div class="hint">${esc(path)}</div><pre class="jar-text">${esc(text.slice(0, 30000))}</pre>`;
+      return;
+    }
+    box.innerHTML = `<div class="hint">${esc(path)}</div><div class="hint">二进制文件（编译后的 .class），不提供预览。</div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="hint bad">预览失败：${esc(e.message)}</div>`;
+  }
+}
+
 /* ================= 账号 ================= */
 function renderUserChip() {
   const chip = $('#userChip');
@@ -619,7 +714,8 @@ function renderTasks() {
     const date = t.created_at ? new Date(t.created_at * 1000).toLocaleString('zh-CN') : '';
     let dl = '';
     if (t.status === 'done' && !state.demo) {
-      dl = `<a class="btn ghost small" style="text-decoration:none" href="${API_BASE}/api/download/${encodeURIComponent(t.id)}">下载</a>`;
+      dl = `<a class="btn ghost small" style="text-decoration:none" href="${API_BASE}/api/download/${encodeURIComponent(t.id)}">下载</a>` +
+           `<button class="btn ghost small" data-jarview="${esc(t.id)}">查看内容</button>`;
     }
     card.innerHTML = `
       <div class="task-head">
@@ -681,7 +777,7 @@ async function doAuth(kind) {
     await loadTasks(); renderTasks();
   } catch (e) {
     if (e.code === 'unverified') {
-      pendingAuth = { email: (isReg ? $('#regEmail').value : $('#logEmail').value).trim(), password: isReg ? $('#regPassword').value : $('#logPassword').value };
+      pendingAuth = { email: (isReg ? $('#regEmail').value : $('#loginEmail').value).trim(), password: isReg ? $('#regPassword').value : $('#loginPassword').value };
       $('#verifyHint').textContent = '账号尚未验证，请输入邮箱验证码（收不到可点击重新发送）。';
       $('#loginForm').classList.add('hidden');
       $('#registerForm').classList.add('hidden');
@@ -793,6 +889,9 @@ function bind() {
   $('#btnRefreshTasks').onclick = () => loadTasks().then(renderTasks);
   $$('[data-buy]').forEach(b => b.onclick = () => startBuy('plan', b.dataset.buy));
   $('#buyClose').onclick = closeBuyModal;
+  const jarDelegate = e => { const b = e.target.closest('[data-jarview]'); if (b) openJarViewer(b.dataset.jarview); };
+  const _tl = $('#taskList'); if (_tl) _tl.addEventListener('click', jarDelegate);
+  const _rb = $('#resultBox'); if (_rb) _rb.addEventListener('click', jarDelegate);
   $('#buyModal').addEventListener('click', e => { if (e.target === $('#buyModal')) closeBuyModal(); });
   $('#themeToggle').onclick = () => applyTheme(document.documentElement.classList.contains('light') ? 'dark' : 'light');
 }
